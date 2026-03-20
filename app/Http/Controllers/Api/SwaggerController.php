@@ -92,6 +92,19 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'user',        ref: '#/components/schemas/User'),
     ]
 )]
+#[OA\Schema(
+    schema: 'EventRegistration',
+    type: 'object',
+    properties: [
+        new OA\Property(property: 'id',            type: 'integer', example: 1),
+        new OA\Property(property: 'event_id',      type: 'integer', example: 1),
+        new OA\Property(property: 'user_id',       type: 'integer', example: 2),
+        new OA\Property(property: 'status',        type: 'string',  example: 'registered'),
+        new OA\Property(property: 'registered_at', type: 'string',  format: 'date-time'),
+        new OA\Property(property: 'event',         ref: '#/components/schemas/Event'),
+        new OA\Property(property: 'user',          ref: '#/components/schemas/User'),
+    ]
+)]
 class SwaggerController extends Controller
 {
     // intentionally empty — only holds global OpenAPI definitions

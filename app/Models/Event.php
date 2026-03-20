@@ -3,10 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\EventRegistration;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
-
 
 class Event extends Model
 {
@@ -22,10 +22,12 @@ class Event extends Model
         'qr_token',
         'qr_code_image',
         'status_event',
+        'quota',
     ];
 
     protected $casts = [
         'event_date' => 'date',
+        'quota'      => 'integer',
     ];
 
     protected $appends = ['qr_code_url'];
@@ -33,7 +35,6 @@ class Event extends Model
     public function getQrCodeUrlAttribute(): ?string
     {
         if (! $this->qr_code_image) return null;
-
         return Storage::disk('public')->url($this->qr_code_image);
     }
 
@@ -52,15 +53,36 @@ class Event extends Model
         return $this->hasMany(Presensi::class, 'event_id');
     }
 
-    // Helper: check if event is currently within attendance window
+    public function registrations(): HasMany
+    {
+        return $this->hasMany(EventRegistration::class, 'event_id');
+    }
+
     public function isWithinAttendanceWindow(): bool
     {
-        $now  = now();
-        $date = $this->event_date->format('Y-m-d');
-
+        $now   = now();
+        $date  = $this->event_date->format('Y-m-d');
         $start = \Carbon\Carbon::parse("{$date} {$this->start_time}");
         $end   = \Carbon\Carbon::parse("{$date} {$this->end_time}");
 
         return $now->between($start, $end);
+    }
+
+    // Cek apakah kuota masih tersedia
+    public function isQuotaAvailable(): bool
+    {
+        // Jika quota null = tidak ada batas
+        if (is_null($this->quota)) return true;
+
+        $totalRegistered = $this->registrations()->count();
+        return $totalRegistered < $this->quota;
+    }
+
+    // Sisa kuota
+    public function remainingQuota(): ?int
+    {
+        if (is_null($this->quota)) return null;
+        $totalRegistered = $this->registrations()->count();
+        return max(0, $this->quota - $totalRegistered);
     }
 }

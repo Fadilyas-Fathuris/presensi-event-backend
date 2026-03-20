@@ -485,6 +485,246 @@
                 ]
             }
         },
+        "/api/admin/events/{id}/broadcast": {
+            "post": {
+                "tags": [
+                    "Admin - Broadcast"
+                ],
+                "summary": "Broadcast event info via WhatsApp",
+                "description": "Sends WhatsApp broadcast to alumni. Target options: \"all\" = semua alumni, \"registered\" = yang sudah daftar event ini, \"custom\" = nomor pilihan manual.",
+                "operationId": "broadcastEvent",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Event ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "target": {
+                                        "description": "all = semua alumni | registered = yang sudah daftar event ini | custom = input nomor manual",
+                                        "type": "string",
+                                        "example": "all",
+                                        "enum": [
+                                            "all",
+                                            "registered",
+                                            "custom"
+                                        ]
+                                    },
+                                    "numbers": {
+                                        "description": "Wajib diisi jika target = custom",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "example": "6281234567890"
+                                        }
+                                    },
+                                    "custom_message": {
+                                        "description": "Opsional — override pesan default",
+                                        "type": "string",
+                                        "example": null,
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Broadcast sent successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Broadcast berhasil dikirim ke 45 alumni"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "target": {
+                                                    "type": "string",
+                                                    "example": "registered"
+                                                },
+                                                "total_sent": {
+                                                    "type": "integer",
+                                                    "example": 45
+                                                },
+                                                "event": {
+                                                    "$ref": "#/components/schemas/Event"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Broadcast failed atau tidak ada penerima",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Event not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/events/{id}/broadcast/preview": {
+            "get": {
+                "tags": [
+                    "Admin - Broadcast"
+                ],
+                "summary": "Preview broadcast message",
+                "description": "Returns preview pesan WA dan jumlah penerima berdasarkan target.",
+                "operationId": "previewBroadcast",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "name": "target",
+                        "in": "query",
+                        "description": "all | registered | custom",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "all",
+                            "enum": [
+                                "all",
+                                "registered",
+                                "custom"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Preview pesan broadcast",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "🕌 *Presensi Event Alumni Pesantren*..."
+                                                },
+                                                "target": {
+                                                    "type": "string",
+                                                    "example": "registered"
+                                                },
+                                                "total_targets": {
+                                                    "type": "integer",
+                                                    "example": 45
+                                                },
+                                                "breakdown": {
+                                                    "properties": {
+                                                        "total_all": {
+                                                            "type": "integer",
+                                                            "example": 120
+                                                        },
+                                                        "total_registered": {
+                                                            "type": "integer",
+                                                            "example": 45
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Event not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/events": {
             "get": {
                 "tags": [
@@ -1213,6 +1453,142 @@
                 ]
             }
         },
+        "/api/admin/events/{id}/registrations": {
+            "get": {
+                "tags": [
+                    "Admin - Event Management"
+                ],
+                "summary": "Get event registration list",
+                "description": "Returns list of alumni who registered for a specific event. Admin only.",
+                "operationId": "adminGetEventRegistrations",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "registered",
+                                "attended",
+                                "absent"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Registration list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "event": {
+                                                    "$ref": "#/components/schemas/Event"
+                                                },
+                                                "summary": {
+                                                    "properties": {
+                                                        "total_registered": {
+                                                            "type": "integer",
+                                                            "example": 80
+                                                        },
+                                                        "total_attended": {
+                                                            "type": "integer",
+                                                            "example": 60
+                                                        },
+                                                        "total_absent": {
+                                                            "type": "integer",
+                                                            "example": 20
+                                                        },
+                                                        "quota": {
+                                                            "type": "integer",
+                                                            "example": 100
+                                                        },
+                                                        "remaining_quota": {
+                                                            "type": "integer",
+                                                            "example": 20
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "registrations": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/EventRegistration"
+                                                    }
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 80
+                                                },
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "last_page": {
+                                                    "type": "integer",
+                                                    "example": 8
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Event not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/auth/register": {
             "post": {
                 "tags": [
@@ -1695,6 +2071,326 @@
                     }
                 ]
             }
+        },
+        "/api/events": {
+            "get": {
+                "tags": [
+                    "Registration"
+                ],
+                "summary": "Get list of active events",
+                "description": "Returns list of active events available for registration.",
+                "operationId": "getPublicEvents",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "category_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of events",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "events": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Event"
+                                                    }
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "last_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/events/{id}": {
+            "get": {
+                "tags": [
+                    "Registration"
+                ],
+                "summary": "Get event detail",
+                "description": "Returns detail of a specific event including quota and registration status.",
+                "operationId": "getEventDetail",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Event detail",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "event": {
+                                                    "$ref": "#/components/schemas/Event"
+                                                },
+                                                "remaining_quota": {
+                                                    "type": "integer",
+                                                    "example": 20
+                                                },
+                                                "is_registered": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                },
+                                                "registration": {
+                                                    "oneOf": [
+                                                        {
+                                                            "$ref": "#/components/schemas/EventRegistration"
+                                                        }
+                                                    ],
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Event not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/events/{id}/register": {
+            "post": {
+                "tags": [
+                    "Registration"
+                ],
+                "summary": "Register for an event",
+                "description": "Alumni registers for an event. Checks quota availability and prevents duplicate registration.",
+                "operationId": "registerEvent",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Registration successful",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Pendaftaran berhasil!"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "registration": {
+                                                    "$ref": "#/components/schemas/EventRegistration"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Already registered or quota full",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Event not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Registration"
+                ],
+                "summary": "Cancel event registration",
+                "description": "Alumni cancels their registration for an event.",
+                "operationId": "cancelRegistration",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Registration cancelled",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Pendaftaran berhasil dibatalkan"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Not registered or already attended",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Event not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -1864,6 +2560,37 @@
                     }
                 },
                 "type": "object"
+            },
+            "EventRegistration": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "event_id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "user_id": {
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "registered"
+                    },
+                    "registered_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "event": {
+                        "$ref": "#/components/schemas/Event"
+                    },
+                    "user": {
+                        "$ref": "#/components/schemas/User"
+                    }
+                },
+                "type": "object"
             }
         },
         "securitySchemes": {
@@ -1880,6 +2607,10 @@
             "description": "Admin - User Management"
         },
         {
+            "name": "Admin - Broadcast",
+            "description": "Admin - Broadcast"
+        },
+        {
             "name": "Admin - Event Management",
             "description": "Admin - Event Management"
         },
@@ -1890,6 +2621,10 @@
         {
             "name": "Presensi",
             "description": "Presensi"
+        },
+        {
+            "name": "Registration",
+            "description": "Registration"
         }
     ]
 }

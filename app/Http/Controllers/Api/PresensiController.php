@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\Presensi;
+use App\Models\EventRegistration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
@@ -103,6 +104,10 @@ class PresensiController extends Controller
             'user_id'    => $request->user()->id,
             'scanned_at' => now(),
         ]);
+
+        EventRegistration::where('event_id', $event->id)
+    ->where('user_id', $request->user()->id)
+    ->update(['status' => 'attended']);
 
         $presensi->load('event:id,event_title,location,event_date');
 

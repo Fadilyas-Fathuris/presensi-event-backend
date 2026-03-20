@@ -175,6 +175,7 @@ class EventController extends Controller
             'event_date'  => 'required|date|after_or_equal:today',
             'start_time'  => 'required|date_format:H:i',
             'end_time'    => 'required|date_format:H:i|after:start_time',
+            'quota'       => 'nullable|integer|min:1',
         ]);
 
         // Generate unique QR token
@@ -261,6 +262,7 @@ class EventController extends Controller
             'event_date'  => 'sometimes|date',
             'start_time'  => 'sometimes|date_format:H:i',
             'end_time'    => 'sometimes|date_format:H:i|after:start_time',
+            'quota'       => 'nullable|integer|min:1',
         ]);
 
         $event->update($validated);
@@ -464,5 +466,85 @@ class EventController extends Controller
         return response($svgContent, 200)
             ->header('Content-Type', 'image/svg+xml')
             ->header('Cache-Control', 'public, max-age=86400');
+    }
+
+    #[OA\Get(
+        path: '/api/admin/events/{id}/registrations',
+        operationId: 'adminGetEventRegistrations',
+        summary: 'Get event registration list',
+        description: 'Returns list of alumni who registered for a specific event. Admin only.',
+        security: [['bearerAuth' => []]],
+        tags: ['Admin - Event Management'],
+        parameters: [
+            new OA\Parameter(name: 'id',       in: 'path',  required: true,  schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'status',   in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['registered', 'attended', 'absent'])),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', example: 10)),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Registration list',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'data', type: 'object',
+                            properties: [
+                                new OA\Property(property: 'event',         ref: '#/components/schemas/Event'),
+                                new OA\Property(property: 'summary', type: 'object',
+                                    properties: [
+                                        new OA\Property(property: 'total_registered', type: 'integer', example: 80),
+                                        new OA\Property(property: 'total_attended',   type: 'integer', example: 60),
+                                        new OA\Property(property: 'total_absent',     type: 'integer', example: 20),
+                                        new OA\Property(property: 'quota',            type: 'integer', example: 100),
+                                        new OA\Property(property: 'remaining_quota',  type: 'integer', example: 20),
+                                    ]
+                                ),
+                                new OA\Property(property: 'registrations', type: 'array', items: new OA\Items(ref: '#/components/schemas/EventRegistration')),
+                                new OA\Property(property: 'total',         type: 'integer', example: 80),
+                                new OA\Property(property: 'current_page',  type: 'integer', example: 1),
+                                new OA\Property(property: 'last_page',     type: 'integer', example: 8),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 404, description: 'Event not found', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 403, description: 'Forbidden',        content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function registrations(Request $request, int $id): JsonResponse
+    {
+        $event = Event::find($id);
+
+        if (! $event) {
+            return response()->json(['success' => false, 'message' => 'Event not found'], 404);
+        }
+
+        $query = $event->registrations()->with('user:id,name,email,phone,angkatan');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $perPage       = $request->get('per_page', 10);
+        $registrations = $query->orderBy('registered_at', 'asc')->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'event'   => $event->only(['id', 'event_title', 'event_date', 'location', 'quota']),
+                'summary' => [
+                    'total_registered' => $event->registrations()->count(),
+                    'total_attended'   => $event->registrations()->where('status', 'attended')->count(),
+                    'total_absent'     => $event->registrations()->where('status', 'absent')->count(),
+                    'quota'            => $event->quota,
+                    'remaining_quota'  => $event->remainingQuota(),
+                ],
+                'registrations' => $registrations->items(),
+                'total'         => $registrations->total(),
+                'current_page'  => $registrations->currentPage(),
+                'last_page'     => $registrations->lastPage(),
+            ],
+        ]);
     }
 }

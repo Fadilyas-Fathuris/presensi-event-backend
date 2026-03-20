@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\Admin\AdminController;
 use App\Http\Controllers\Api\Admin\EventController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PresensiController;
+use App\Http\Controllers\Api\RegistrationController;
+use App\Http\Controllers\Api\Admin\BroadcastController;
 use Illuminate\Support\Facades\Route;
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -37,7 +39,20 @@ Route::prefix('admin')
         Route::patch('/events/{id}/toggle',        [EventController::class, 'toggle']);
         Route::get('/events/{id}/attendances',     [EventController::class, 'attendances']);
         Route::get('/events/{id}/qr-image',      [EventController::class, 'qrImage']);
+        Route::get('/events/{id}/registrations', [EventController::class, 'registrations']);
+
+        // Broadcast
+        Route::post('/events/{id}/broadcast',         [BroadcastController::class, 'send']);
+        Route::get('/events/{id}/broadcast/preview',  [BroadcastController::class, 'preview']);
     });
+
+// ── Events & Registration (Alumni) ────────────────────────────────────────────
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/events',                  [RegistrationController::class, 'index']);
+    Route::get('/events/{id}',             [RegistrationController::class, 'show']);
+    Route::post('/events/{id}/register',   [RegistrationController::class, 'register']);
+    Route::delete('/events/{id}/register', [RegistrationController::class, 'cancel']);
+});
 
 // ── Presensi (Alumni) ─────────────────────────────────────────────────────────
 Route::prefix('presensi')
