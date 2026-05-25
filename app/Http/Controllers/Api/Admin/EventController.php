@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Category;
 use App\Models\Event;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,6 +14,52 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class EventController extends Controller
 {
+    #[OA\Get(
+        path: '/api/admin/event-categories',
+        operationId: 'adminGetEventCategories',
+        summary: 'Get event categories',
+        description: 'Returns list of event categories for admin event form. Admin only.',
+        security: [['bearerAuth' => []]],
+        tags: ['Admin - Event Management'],
+        responses: [
+            new OA\Response(response: 200, description: 'List of event categories',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'data', type: 'object',
+                            properties: [
+                                new OA\Property(property: 'categories', type: 'array', items: new OA\Items(
+                                    properties: [
+                                        new OA\Property(property: 'id', type: 'integer', example: 1),
+                                        new OA\Property(property: 'category_name', type: 'string', example: 'Reuni'),
+                                        new OA\Property(property: 'description', type: 'string', example: 'Event reuni alumni'),
+                                    ],
+                                    type: 'object'
+                                )),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 403, description: 'Forbidden',       content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function eventCategories(): JsonResponse
+    {
+        $categories = Category::query()
+            ->select(['id', 'category_name', 'description'])
+            ->orderBy('id', 'asc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'categories' => $categories,
+            ],
+        ]);
+    }
+
     #[OA\Get(
         path: '/api/admin/events',
         operationId: 'adminGetAllEvents',

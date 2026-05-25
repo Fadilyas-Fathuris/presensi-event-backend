@@ -33,6 +33,7 @@ Route::prefix('admin')
         Route::delete('/users/{id}',  [AdminController::class, 'deleteUser']);
 
         // Event management
+        Route::get('/event-categories',            [EventController::class, 'eventCategories']);
         Route::get('/events',                      [EventController::class, 'index']);
         Route::get('/events/{id}',                 [EventController::class, 'show']);
         Route::post('/events',                     [EventController::class, 'store']);
