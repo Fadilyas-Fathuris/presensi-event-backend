@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\HandleCors;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -11,11 +12,16 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->alias([
-            'is_admin' => \App\Http\Middleware\IsAdmin::class,
-        ]);
+    ->withMiddleware(function (Middleware $middleware) {
+        $middleware->append(HandleCors::class);
     })
+
+    // ->withMiddleware(function (Middleware $middleware): void {
+    //     $middleware->alias([
+    //         'is_admin' => \App\Http\Middleware\IsAdmin::class,
+    //     ]);
+    // })
+
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();

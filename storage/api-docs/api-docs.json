@@ -1615,19 +1615,10 @@
                                     },
                                     "gender": {
                                         "type": "string",
-                                        "example": "L",
+                                        "example": "Laki-laki",
                                         "enum": [
-                                            "L",
-                                            "P"
-                                        ]
-                                    },
-                                    "status": {
-                                        "type": "string",
-                                        "example": "alumni",
-                                        "enum": [
-                                            "siswa aktif",
-                                            "alumni",
-                                            "umum"
+                                            "Laki-laki",
+                                            "Perempuan"
                                         ]
                                     },
                                     "email": {
@@ -1652,6 +1643,11 @@
                                     "angkatan": {
                                         "type": "string",
                                         "example": "2015"
+                                    },
+                                    "birth_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2003-08-17"
                                     }
                                 },
                                 "type": "object"

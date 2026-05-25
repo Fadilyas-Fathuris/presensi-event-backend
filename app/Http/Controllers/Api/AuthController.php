@@ -9,34 +9,35 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use OpenApi\Attributes as OA;
-
-use function PHPSTORM_META\type;
 
 class AuthController extends Controller
 {
     #[OA\Post(
-        path: '/api/auth/register',
-        operationId: 'register',
-        summary: 'Register a new alumni user',
-        description: 'Creates a new alumni account and returns an access token.',
-        tags: ['Authentication'],
-        requestBody: new OA\RequestBody(
-            required: true,
-            content: new OA\JsonContent(
-                required: ['name', 'email', 'password', 'password_confirmation'],
-                properties: [
-                    new OA\Property(property: 'name',                  type: 'string',  example: 'Ahmad Fauzi'),
-                    new OA\Property(property: 'gender',                type: 'string',  enum: ["L", "P"], example: 'L'),
-                    new OA\Property(property: 'status',                type: 'string',  enum: ["siswa aktif", "alumni", "umum"], example: 'alumni'),
-                    new OA\Property(property: 'email',                 type: 'string',  format: 'email', example: 'ahmad@example.com'),
-                    new OA\Property(property: 'password',              type: 'string',  format: 'password', example: 'password123'),
-                    new OA\Property(property: 'password_confirmation', type: 'string',  format: 'password', example: 'password123'),
-                    new OA\Property(property: 'phone',                 type: 'string',  example: '081234567890'),
-                    new OA\Property(property: 'angkatan',              type: 'string',  example: '2015'),
-                ]
-            )
-        ),
+    path: '/api/auth/register',
+    operationId: 'register',
+    summary: 'Register a new alumni user',
+    description: 'Creates a new alumni account and returns an access token.',
+    tags: ['Authentication'],
+    requestBody: new OA\RequestBody(
+        required: true,
+        content: new OA\JsonContent(
+            required: ['first_name', 'last_name', 'email', 'password', 'password_confirmation'],
+            properties: [
+                new OA\Property(property: 'first_name', type: 'string', example: 'Ahmad'),
+                new OA\Property(property: 'last_name',  type: 'string', example: 'Fauzi'),
+                new OA\Property(property: 'gender', type: 'string', enum: ["Laki-laki", "Perempuan"], example: 'Laki-laki'),
+                new OA\Property(property: 'email', type: 'string', format: 'email', example: 'ahmad@gmail.com'),
+                new OA\Property(property: 'password', type: 'string', format: 'password', example: 'password123'),
+                new OA\Property(property: 'password_confirmation', type: 'string', format: 'password', example: 'password123'),
+                new OA\Property(property: 'phone', type: 'string', example: '081234567890'),
+                new OA\Property(property: 'graduation_year', type: 'string', example: '2015'),
+                new OA\Property(property: 'birth_date', type: 'string', format: 'date', example: '2003-08-17'),
+            ]
+        )
+    ),
         responses: [
             new OA\Response(
                 response: 201,
@@ -67,14 +68,15 @@ class AuthController extends Controller
     public function register(RegisterRequest $request): JsonResponse
     {
         $user = User::create([
-            'name'     => $request->name,
-            'gender'   => $request->gender,
-            'status'   => $request-> status,
-            'email'    => $request->email,
-            'password' => Hash::make($request->password),
-            'phone'    => $request->phone,
-            'angkatan' => $request->angkatan,
-            'role'     => 'user',
+            'first_name'      => $request->first_name,
+            'last_name'       => $request->last_name,
+            'gender'          => $request->gender,
+            'email'           => $request->email,
+            'password'        => Hash::make($request->password),
+            'phone'           => $request->phone,
+            'graduation_year' => $request->graduation_year,
+            'birth_date'      => $request->birth_date,
+            'role'            => 'alumni',
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -101,7 +103,7 @@ class AuthController extends Controller
             content: new OA\JsonContent(
                 required: ['email', 'password'],
                 properties: [
-                    new OA\Property(property: 'email',    type: 'string', format: 'email',    example: 'ahmad@example.com'),
+                    new OA\Property(property: 'email',    type: 'string', format: 'email',    example: 'ahmad@gmail.com'),
                     new OA\Property(property: 'password', type: 'string', format: 'password', example: 'password123'),
                 ]
             )
@@ -238,6 +240,142 @@ class AuthController extends Controller
             'data'    => [
                 'user' => $request->user(),
             ],
+        ]);
+    }
+
+    // =========================================================================
+    // ── PROFILE UPDATE ────────────────────────────────────────────────────────
+    // =========================================================================
+
+    #[OA\Put(
+        path: '/api/auth/profile',
+        operationId: 'updateProfile',
+        summary: 'Update alumni profile',
+        description: 'Updates the authenticated alumni profile data.',
+        security: [['bearerAuth' => []]],
+        tags: ['Authentication'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'first_name',      type: 'string',  example: 'Ahmad'),
+                    new OA\Property(property: 'last_name',       type: 'string',  example: 'Fauzi'),
+                    new OA\Property(property: 'gender',          type: 'string',  enum: ['Laki-laki', 'Perempuan']),
+                    new OA\Property(property: 'phone',           type: 'string',  example: '081234567890'),
+                    new OA\Property(property: 'graduation_year', type: 'integer', example: 2020),
+                    new OA\Property(property: 'birth_date',      type: 'string',  format: 'date', example: '2000-01-01'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Profile updated successfully',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string',  example: 'Profile updated successfully'),
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'user', ref: '#/components/schemas/User'),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated',   content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Validation error',  content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')),
+        ]
+    )]
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'first_name'      => ['sometimes', 'string', 'max:100'],
+            'last_name'       => ['sometimes', 'string', 'max:100'],
+            'gender'          => ['sometimes', Rule::in(['Laki-laki', 'Perempuan'])],
+            'phone'           => ['sometimes', 'string', 'max:20'],
+            'graduation_year' => ['sometimes', 'digits:4', 'integer', 'min:1950', 'max:' . date('Y')],
+            'birth_date'      => ['sometimes', 'date', 'before:today'],
+        ]);
+
+        $user->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile updated successfully',
+            'data'    => ['user' => $user->fresh()],
+        ]);
+    }
+
+    // =========================================================================
+    // ── AVATAR UPLOAD ─────────────────────────────────────────────────────────
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/auth/profile/avatar',
+        operationId: 'uploadAvatar',
+        summary: 'Upload profile avatar',
+        description: 'Uploads a new profile picture for the authenticated user.',
+        security: [['bearerAuth' => []]],
+        tags: ['Authentication'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: 'multipart/form-data',
+                schema: new OA\Schema(
+                    properties: [
+                        new OA\Property(property: 'avatar', type: 'string', format: 'binary'),
+                    ]
+                )
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Avatar uploaded successfully',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'avatar_url', type: 'string', example: '/storage/avatars/abc.jpg'),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated',  content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')),
+        ]
+    )]
+    public function uploadAvatar(Request $request): JsonResponse
+    {
+        $request->validate([
+            'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ]);
+
+        $user = $request->user();
+
+        // Hapus avatar lama jika ada
+        if ($user->avatar_url) {
+            $oldPath = str_replace('/storage/', 'public/', $user->avatar_url);
+            Storage::delete($oldPath);
+        }
+
+        $path = $request->file('avatar')->store('avatars', 'public');
+        $url  = '/storage/' . $path;
+
+        $user->update(['avatar_url' => $url]);
+
+        return response()->json([
+            'success' => true,
+            'data'    => ['avatar_url' => $url],
         ]);
     }
 }
