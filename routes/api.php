@@ -2,10 +2,11 @@
 
 use App\Http\Controllers\Api\Admin\AdminController;
 use App\Http\Controllers\Api\Admin\EventController;
+use App\Http\Controllers\Api\Admin\EventQrCodeController;
+use App\Http\Controllers\Api\Admin\BroadcastController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PresensiController;
 use App\Http\Controllers\Api\RegistrationController;
-use App\Http\Controllers\Api\Admin\BroadcastController;
 use Illuminate\Support\Facades\Route;
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -41,8 +42,10 @@ Route::prefix('admin')
         Route::delete('/events/{id}',              [EventController::class, 'destroy']);
         Route::patch('/events/{id}/toggle',        [EventController::class, 'toggle']);
         Route::get('/events/{id}/attendances',     [EventController::class, 'attendances']);
-        Route::get('/events/{id}/qr-image',      [EventController::class, 'qrImage']);
-        Route::get('/events/{id}/registrations', [EventController::class, 'registrations']);
+        Route::get('/events/{id}/qr',              [EventQrCodeController::class, 'show']);
+        Route::post('/events/{id}/qr/generate',    [EventQrCodeController::class, 'generate']);
+        Route::get('/events/{id}/qr-image',        [EventQrCodeController::class, 'image']);
+        Route::get('/events/{id}/registrations',   [EventController::class, 'registrations']);
 
         // Broadcast
         Route::post('/events/{id}/broadcast',         [BroadcastController::class, 'send']);

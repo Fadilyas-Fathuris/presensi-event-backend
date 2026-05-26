@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\EventQrCode;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\EventRegistration;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Storage;
 
 class Event extends Model
@@ -84,5 +86,17 @@ class Event extends Model
         if (is_null($this->quota)) return null;
         $totalRegistered = $this->registrations()->count();
         return max(0, $this->quota - $totalRegistered);
+    }
+
+    public function qrCodes(): HasMany
+    {
+        return $this->hasMany(EventQrCode::class);
+    }
+
+    public function activeQrCode(): HasOne
+    {
+        return $this->hasOne(EventQrCode::class)
+            ->where('is_active', true)
+            ->latestOfMany();
     }
 }
