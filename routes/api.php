@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Admin\AdminController;
 use App\Http\Controllers\Api\Admin\EventController;
 use App\Http\Controllers\Api\Admin\EventQrCodeController;
 use App\Http\Controllers\Api\Admin\BroadcastController;
+use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PresensiController;
 use App\Http\Controllers\Api\RegistrationController;
@@ -26,6 +27,8 @@ Route::prefix('auth')->group(function () {
 Route::prefix('admin')
     ->middleware(['auth:sanctum', 'is_admin'])
     ->group(function () {
+        Route::put('/change-password', [AdminProfileController::class, 'changePassword']);
+        
         // User management
         Route::get('/users',          [AdminController::class, 'getAllUsers']);
         Route::get('/users/{id}',     [AdminController::class, 'getUser']);
@@ -50,6 +53,7 @@ Route::prefix('admin')
         // Broadcast
         Route::post('/events/{id}/broadcast',         [BroadcastController::class, 'send']);
         Route::get('/events/{id}/broadcast/preview',  [BroadcastController::class, 'preview']);
+        
     });
 
 // ── Events & Registration (Alumni) ────────────────────────────────────────────
