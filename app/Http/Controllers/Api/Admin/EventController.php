@@ -243,6 +243,35 @@ class EventController extends Controller
 
         $event->load(['category', 'createdBy']);
 
+        // Notify all alumni about the new event
+        $alumniUserIds = \App\Models\User::where('role', 'alumni')->pluck('id');
+        $category = $event->category;
+
+        if ($alumniUserIds->isNotEmpty()) {
+            $notifications = $alumniUserIds->map(fn($userId) => [
+                'user_id' => $userId,
+                'title' => 'Event Baru: ' . $event->event_title,
+                'body' => 'Event "' . $event->event_title . '" telah dijadwalkan pada ' . $event->event_date . ' di ' . $event->location,
+                'type' => 'upcoming_event',
+                'priority' => 'normal',
+                'data' => json_encode([
+                    'event_id' => $event->id,
+                    'event_title' => $event->event_title,
+                    'location' => $event->location,
+                    'starts_at' => $event->event_date,
+                    'start_time' => $event->start_time,
+                    'end_time' => $event->end_time,
+                    'category' => $category?->id,
+                    'category_name' => $category?->category_name,
+                ]),
+                'is_read' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ])->toArray();
+
+            \App\Models\AlumniNotification::insert($notifications);
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Event created successfully',
