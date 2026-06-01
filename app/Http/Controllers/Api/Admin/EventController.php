@@ -243,6 +243,8 @@ class EventController extends Controller
 
         $event->load(['category', 'createdBy']);
 
+        \App\Models\ActivityLog::log('create_event', 'Admin created a new event: ' . $event->event_title);
+
         return response()->json([
             'success' => true,
             'message' => 'Event created successfully',
@@ -314,6 +316,8 @@ class EventController extends Controller
 
         $event->update($validated);
 
+        \App\Models\ActivityLog::log('update_event', 'Admin updated event: ' . $event->event_title);
+
         return response()->json([
             'success' => true,
             'message' => 'Event updated successfully',
@@ -356,6 +360,8 @@ class EventController extends Controller
         if ($event->qr_code_image && Storage::disk('public')->exists($event->qr_code_image)) {
             Storage::disk('public')->delete($event->qr_code_image);
         }
+
+        \App\Models\ActivityLog::log('delete_event', 'Admin deleted event: ' . $event->event_title);
 
         $event->delete();
 
@@ -403,6 +409,8 @@ class EventController extends Controller
 
         $newStatus = $event->status_event === 'active' ? 'inactive' : 'active';
         $event->update(['status_event' => $newStatus]);
+
+        \App\Models\ActivityLog::log('toggle_event', 'Admin changed event status of "' . $event->event_title . '" to ' . $newStatus);
 
         return response()->json([
             'success' => true,

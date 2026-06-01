@@ -156,6 +156,10 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        if ($user->role === 'admin') {
+            \App\Models\ActivityLog::log('login', 'Admin logged in', $user->id);
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Login successful',

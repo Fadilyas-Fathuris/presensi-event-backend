@@ -63,6 +63,8 @@ Route::prefix('admin')
         Route::post('/events/{id}/broadcast',         [BroadcastController::class, 'send']);
         Route::get('/events/{id}/broadcast/preview',  [BroadcastController::class, 'preview']);
         
+        // Activity logs
+        Route::get('/activity-logs', [AdminController::class, 'getActivityLogs']);
     });
 
 // ── Settings ─────────────────────────────────────────────────────────────────

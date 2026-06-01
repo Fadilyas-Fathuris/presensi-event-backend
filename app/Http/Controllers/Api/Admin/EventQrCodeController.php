@@ -207,6 +207,8 @@ class EventQrCodeController extends Controller
             'created_by' => $request->user()->id,
         ]);
 
+        \App\Models\ActivityLog::log('generate_qr', 'Admin generated a new QR Code for event: ' . $event->event_title);
+
         return response()->json([
             'success' => true,
             'message' => 'QR code generated successfully',

@@ -55,6 +55,8 @@ class UserManagementController extends Controller
 
         $user->update($payload);
 
+        \App\Models\ActivityLog::log('edit_user', 'Admin updated user details for: ' . $user->email);
+
         return response()->json([
             'message' => 'User berhasil diperbarui',
             'data'    => $this->formatUser($user->fresh(), $validated['status']),
@@ -73,6 +75,8 @@ class UserManagementController extends Controller
 
         $user->tokens()->delete();
         $user->delete();
+
+        \App\Models\ActivityLog::log('delete_user', 'Admin deleted user: ' . $user->email);
 
         return response()->json([
             'message' => 'User berhasil dihapus',

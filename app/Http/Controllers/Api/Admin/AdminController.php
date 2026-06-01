@@ -393,4 +393,16 @@ class AdminController extends Controller
             'message' => 'User deleted successfully',
         ]);
     }
+
+    public function getActivityLogs(): JsonResponse
+    {
+        $logs = \App\Models\ActivityLog::with('user:id,first_name,last_name,email')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data'    => $logs,
+        ]);
+    }
 }
