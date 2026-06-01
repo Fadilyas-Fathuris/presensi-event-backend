@@ -23,6 +23,11 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
 
+    ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
+        // Scheduled tasks are registered in routes/console.php
+    })
+
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
+

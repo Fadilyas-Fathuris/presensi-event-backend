@@ -342,6 +342,19 @@ class AuthController extends Controller
             $user->tokens()->where('id', '!=', $currentTokenId)->delete();
         }
 
+        // Create password changed notification
+        \App\Models\AlumniNotification::create([
+            'user_id'  => $user->id,
+            'title'    => 'Password Berhasil Diubah',
+            'body'     => 'Password akun Anda berhasil diperbarui pada ' . now()->translatedFormat('d F Y, H:i') . '. Jika Anda tidak melakukan perubahan ini, segera hubungi admin.',
+            'type'     => 'password_changed',
+            'priority' => 'high',
+            'data'     => json_encode([
+                'changed_at' => now()->toIso8601String(),
+            ]),
+            'is_read'  => false,
+        ]);
+
         return response()->json([
             'success' => true,
             'message' => 'Password berhasil diperbarui',
