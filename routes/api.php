@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PresensiController;
 use App\Http\Controllers\Api\RegistrationController;
+use App\Http\Controllers\Api\UserManagementController;
+use App\Http\Controllers\Api\WhatsappSettingsController;
 use Illuminate\Support\Facades\Route;
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -22,6 +24,11 @@ Route::prefix('auth')->group(function () {
         Route::post('/profile/avatar', [AuthController::class, 'uploadAvatar']);
     });
 });
+
+// ── User Management (Frontend compatibility) ─────────────────────────────────
+Route::get('/users',         [UserManagementController::class, 'index']);
+Route::put('/users/{id}',    [UserManagementController::class, 'update']);
+Route::delete('/users/{id}', [UserManagementController::class, 'destroy']);
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 Route::prefix('admin')
@@ -54,6 +61,16 @@ Route::prefix('admin')
         Route::post('/events/{id}/broadcast',         [BroadcastController::class, 'send']);
         Route::get('/events/{id}/broadcast/preview',  [BroadcastController::class, 'preview']);
         
+    });
+
+// ── Settings ─────────────────────────────────────────────────────────────────
+Route::prefix('settings')
+    ->middleware(['auth:sanctum', 'is_admin'])
+    ->group(function () {
+        Route::get('/whatsapp', [WhatsappSettingsController::class, 'show']);
+        Route::put('/whatsapp', [WhatsappSettingsController::class, 'update']);
+        Route::post('/whatsapp/test', [WhatsappSettingsController::class, 'test'])
+            ->middleware('throttle:6,1');
     });
 
 // ── Events & Registration (Alumni) ────────────────────────────────────────────

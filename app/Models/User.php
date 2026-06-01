@@ -11,15 +11,16 @@ class User extends Authenticatable
     use HasApiTokens, Notifiable;
 
     protected $fillable = [
-    'first_name',      
-    'last_name',      
-    'gender',
-    'email',
-    'password',
-    'phone',
-    'graduation_year',
-    'birth_date',
-    'role',
+        'first_name',
+        'last_name',
+        'gender',
+        'email',
+        'password',
+        'phone',
+        'graduation_year',
+        'birth_date',
+        'role',
+        'status',
     ];
 
     protected $hidden = [

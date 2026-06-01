@@ -42,7 +42,7 @@ class EventController extends Controller
                 )
             ),
             new OA\Response(response: 401, description: 'Unauthenticated', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-            new OA\Response(response: 403, description: 'Forbidden',       content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
     public function eventCategories(): JsonResponse
@@ -54,7 +54,7 @@ class EventController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => [
+            'data' => [
                 'categories' => $categories,
             ],
         ]);
@@ -68,10 +68,10 @@ class EventController extends Controller
         security: [['bearerAuth' => []]],
         tags: ['Admin - Event Management'],
         parameters: [
-            new OA\Parameter(name: 'search',      in: 'query', required: false, schema: new OA\Schema(type: 'string')),
-            new OA\Parameter(name: 'status',       in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['active', 'inactive'])),
-            new OA\Parameter(name: 'category_id',  in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
-            new OA\Parameter(name: 'per_page',     in: 'query', required: false, schema: new OA\Schema(type: 'integer', example: 10)),
+            new OA\Parameter(name: 'search', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['active', 'inactive'])),
+            new OA\Parameter(name: 'category_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', example: 10)),
         ],
         responses: [
             new OA\Response(response: 200, description: 'List of events',
@@ -80,17 +80,17 @@ class EventController extends Controller
                         new OA\Property(property: 'success', type: 'boolean', example: true),
                         new OA\Property(property: 'data', type: 'object',
                             properties: [
-                                new OA\Property(property: 'events',       type: 'array', items: new OA\Items(ref: '#/components/schemas/Event')),
-                                new OA\Property(property: 'total',        type: 'integer', example: 20),
+                                new OA\Property(property: 'events', type: 'array', items: new OA\Items(ref: '#/components/schemas/Event')),
+                                new OA\Property(property: 'total', type: 'integer', example: 20),
                                 new OA\Property(property: 'current_page', type: 'integer', example: 1),
-                                new OA\Property(property: 'last_page',    type: 'integer', example: 2),
+                                new OA\Property(property: 'last_page', type: 'integer', example: 2),
                             ]
                         ),
                     ]
                 )
             ),
             new OA\Response(response: 401, description: 'Unauthenticated', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-            new OA\Response(response: 403, description: 'Forbidden',       content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
     public function index(Request $request): JsonResponse
@@ -101,7 +101,7 @@ class EventController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('event_title', 'like', "%{$search}%")
-                  ->orWhere('location',   'like', "%{$search}%");
+                    ->orWhere('location', 'like', "%{$search}%");
             });
         }
 
@@ -114,15 +114,15 @@ class EventController extends Controller
         }
 
         $perPage = $request->get('per_page', 10);
-        $events  = $query->orderBy('event_date', 'desc')->paginate($perPage);
+        $events = $query->orderBy('event_date', 'desc')->paginate($perPage);
 
         return response()->json([
             'success' => true,
-            'data'    => [
-                'events'       => $events->items(),
-                'total'        => $events->total(),
+            'data' => [
+                'events' => $events->items(),
+                'total' => $events->total(),
                 'current_page' => $events->currentPage(),
-                'last_page'    => $events->lastPage(),
+                'last_page' => $events->lastPage(),
             ],
         ]);
     }
@@ -144,7 +144,7 @@ class EventController extends Controller
                         new OA\Property(property: 'success', type: 'boolean', example: true),
                         new OA\Property(property: 'data', type: 'object',
                             properties: [
-                                new OA\Property(property: 'event',            ref: '#/components/schemas/Event'),
+                                new OA\Property(property: 'event', ref: '#/components/schemas/Event'),
                                 new OA\Property(property: 'attendance_count', type: 'integer', example: 25),
                             ]
                         ),
@@ -152,7 +152,7 @@ class EventController extends Controller
                 )
             ),
             new OA\Response(response: 404, description: 'Event not found', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-            new OA\Response(response: 403, description: 'Forbidden',        content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
     public function show(int $id): JsonResponse
@@ -165,8 +165,8 @@ class EventController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => [
-                'event'            => $event,
+            'data' => [
+                'event' => $event,
                 'attendance_count' => $event->presensis()->count(),
             ],
         ]);
@@ -184,13 +184,13 @@ class EventController extends Controller
             content: new OA\JsonContent(
                 required: ['category_id', 'event_title', 'location', 'event_date', 'start_time', 'end_time'],
                 properties: [
-                    new OA\Property(property: 'category_id',  type: 'integer', example: 1),
-                    new OA\Property(property: 'event_title',  type: 'string',  example: 'Reuni Akbar 2025'),
-                    new OA\Property(property: 'description',  type: 'string',  example: 'Reuni alumni angkatan 2010-2015'),
-                    new OA\Property(property: 'location',     type: 'string',  example: 'Aula Pesantren'),
-                    new OA\Property(property: 'event_date',   type: 'string',  format: 'date',     example: '2025-12-01'),
-                    new OA\Property(property: 'start_time',   type: 'string',  format: 'time',     example: '08:00'),
-                    new OA\Property(property: 'end_time',     type: 'string',  format: 'time',     example: '17:00'),
+                    new OA\Property(property: 'category_id', type: 'integer', example: 1),
+                    new OA\Property(property: 'event_title', type: 'string', example: 'Reuni Akbar 2025'),
+                    new OA\Property(property: 'description', type: 'string', example: 'Reuni alumni angkatan 2010-2015'),
+                    new OA\Property(property: 'location', type: 'string', example: 'Aula Pesantren'),
+                    new OA\Property(property: 'event_date', type: 'string', format: 'date', example: '2025-12-01'),
+                    new OA\Property(property: 'start_time', type: 'string', format: 'time', example: '08:00'),
+                    new OA\Property(property: 'end_time', type: 'string', format: 'time', example: '17:00'),
                 ]
             )
         ),
@@ -199,7 +199,7 @@ class EventController extends Controller
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'message', type: 'string',  example: 'Event created successfully'),
+                        new OA\Property(property: 'message', type: 'string', example: 'Event created successfully'),
                         new OA\Property(property: 'data', type: 'object',
                             properties: [
                                 new OA\Property(property: 'event', ref: '#/components/schemas/Event'),
@@ -209,7 +209,7 @@ class EventController extends Controller
                 )
             ),
             new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')),
-            new OA\Response(response: 403, description: 'Forbidden',        content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
     public function store(Request $request): JsonResponse
@@ -218,27 +218,27 @@ class EventController extends Controller
             'category_id' => 'required|exists:categories,id',
             'event_title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'location'    => 'required|string|max:255',
-            'event_date'  => 'required|date|after_or_equal:today',
-            'start_time'  => 'required|date_format:H:i',
-            'end_time'    => 'required|date_format:H:i|after:start_time',
-            'quota'       => 'nullable|integer|min:1',
+            'location' => 'required|string|max:255',
+            'event_date' => 'required|date|after_or_equal:today',
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => 'required|date_format:H:i|after:start_time',
+            'quota' => 'nullable|integer|min:1',
         ]);
 
         // Generate unique QR token
         $qrToken = Str::uuid()->toString();
 
         // Generate QR code image and save to storage
-        $qrImage   = QrCode::format('svg')->size(400)->generate($qrToken);
+        $qrImage = QrCode::format('svg')->size(400)->generate($qrToken);
         $imagePath = "qrcodes/{$qrToken}.svg";
         Storage::disk('public')->put($imagePath, $qrImage);
 
         $event = Event::create([
             ...$validated,
-            'created_by'    => $request->user()->id,
-            'qr_token'      => $qrToken,
+            'created_by' => $request->user()->id,
+            'qr_token' => $qrToken,
             'qr_code_image' => $imagePath,
-            'status_event'  => 'active',
+            'status_event' => 'active',
         ]);
 
         $event->load(['category', 'createdBy']);
@@ -246,7 +246,7 @@ class EventController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Event created successfully',
-            'data'    => ['event' => $event],
+            'data' => ['event' => $event],
         ], 201);
     }
 
@@ -265,12 +265,12 @@ class EventController extends Controller
             content: new OA\JsonContent(
                 properties: [
                     new OA\Property(property: 'category_id', type: 'integer', example: 2),
-                    new OA\Property(property: 'event_title', type: 'string',  example: 'Reuni Akbar 2025 Updated'),
-                    new OA\Property(property: 'description', type: 'string',  example: 'Deskripsi diperbarui'),
-                    new OA\Property(property: 'location',    type: 'string',  example: 'Gedung Serbaguna'),
-                    new OA\Property(property: 'event_date',  type: 'string',  format: 'date', example: '2025-12-05'),
-                    new OA\Property(property: 'start_time',  type: 'string',  format: 'time', example: '09:00'),
-                    new OA\Property(property: 'end_time',    type: 'string',  format: 'time', example: '16:00'),
+                    new OA\Property(property: 'event_title', type: 'string', example: 'Reuni Akbar 2025 Updated'),
+                    new OA\Property(property: 'description', type: 'string', example: 'Deskripsi diperbarui'),
+                    new OA\Property(property: 'location', type: 'string', example: 'Gedung Serbaguna'),
+                    new OA\Property(property: 'event_date', type: 'string', format: 'date', example: '2025-12-05'),
+                    new OA\Property(property: 'start_time', type: 'string', format: 'time', example: '09:00'),
+                    new OA\Property(property: 'end_time', type: 'string', format: 'time', example: '16:00'),
                 ]
             )
         ),
@@ -279,7 +279,7 @@ class EventController extends Controller
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'message', type: 'string',  example: 'Event updated successfully'),
+                        new OA\Property(property: 'message', type: 'string', example: 'Event updated successfully'),
                         new OA\Property(property: 'data', type: 'object',
                             properties: [
                                 new OA\Property(property: 'event', ref: '#/components/schemas/Event'),
@@ -290,7 +290,7 @@ class EventController extends Controller
             ),
             new OA\Response(response: 404, description: 'Event not found', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
             new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')),
-            new OA\Response(response: 403, description: 'Forbidden',        content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
     public function update(Request $request, int $id): JsonResponse
@@ -305,11 +305,11 @@ class EventController extends Controller
             'category_id' => 'sometimes|exists:categories,id',
             'event_title' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
-            'location'    => 'sometimes|string|max:255',
-            'event_date'  => 'sometimes|date',
-            'start_time'  => 'sometimes|date_format:H:i',
-            'end_time'    => 'sometimes|date_format:H:i|after:start_time',
-            'quota'       => 'nullable|integer|min:1',
+            'location' => 'sometimes|string|max:255',
+            'event_date' => 'sometimes|date',
+            'start_time' => 'sometimes|date_format:H:i',
+            'end_time' => 'sometimes|date_format:H:i|after:start_time',
+            'quota' => 'nullable|integer|min:1',
         ]);
 
         $event->update($validated);
@@ -317,7 +317,7 @@ class EventController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Event updated successfully',
-            'data'    => ['event' => $event->fresh()->load(['category', 'createdBy'])],
+            'data' => ['event' => $event->fresh()->load(['category', 'createdBy'])],
         ]);
     }
 
@@ -336,12 +336,12 @@ class EventController extends Controller
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'message', type: 'string',  example: 'Event deleted successfully'),
+                        new OA\Property(property: 'message', type: 'string', example: 'Event deleted successfully'),
                     ]
                 )
             ),
             new OA\Response(response: 404, description: 'Event not found', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-            new OA\Response(response: 403, description: 'Forbidden',        content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
     public function destroy(int $id): JsonResponse
@@ -380,7 +380,7 @@ class EventController extends Controller
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'message', type: 'string',  example: 'Event status updated to inactive'),
+                        new OA\Property(property: 'message', type: 'string', example: 'Event status updated to inactive'),
                         new OA\Property(property: 'data', type: 'object',
                             properties: [
                                 new OA\Property(property: 'status_event', type: 'string', example: 'inactive'),
@@ -390,7 +390,7 @@ class EventController extends Controller
                 )
             ),
             new OA\Response(response: 404, description: 'Event not found', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-            new OA\Response(response: 403, description: 'Forbidden',        content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
     public function toggle(int $id): JsonResponse
@@ -407,7 +407,7 @@ class EventController extends Controller
         return response()->json([
             'success' => true,
             'message' => "Event status updated to {$newStatus}",
-            'data'    => ['status_event' => $newStatus],
+            'data' => ['status_event' => $newStatus],
         ]);
     }
 
@@ -419,7 +419,7 @@ class EventController extends Controller
         security: [['bearerAuth' => []]],
         tags: ['Admin - Event Management'],
         parameters: [
-            new OA\Parameter(name: 'id',       in: 'path',  required: true,  schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
             new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', example: 10)),
         ],
         responses: [
@@ -429,18 +429,18 @@ class EventController extends Controller
                         new OA\Property(property: 'success', type: 'boolean', example: true),
                         new OA\Property(property: 'data', type: 'object',
                             properties: [
-                                new OA\Property(property: 'event',       ref: '#/components/schemas/Event'),
+                                new OA\Property(property: 'event', ref: '#/components/schemas/Event'),
                                 new OA\Property(property: 'attendances', type: 'array', items: new OA\Items(ref: '#/components/schemas/Presensi')),
-                                new OA\Property(property: 'total',        type: 'integer', example: 30),
+                                new OA\Property(property: 'total', type: 'integer', example: 30),
                                 new OA\Property(property: 'current_page', type: 'integer', example: 1),
-                                new OA\Property(property: 'last_page',    type: 'integer', example: 3),
+                                new OA\Property(property: 'last_page', type: 'integer', example: 3),
                             ]
                         ),
                     ]
                 )
             ),
             new OA\Response(response: 404, description: 'Event not found', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-            new OA\Response(response: 403, description: 'Forbidden',        content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
     public function attendances(Request $request, int $id): JsonResponse
@@ -451,7 +451,7 @@ class EventController extends Controller
             return response()->json(['success' => false, 'message' => 'Event not found'], 404);
         }
 
-        $perPage     = $request->get('per_page', 10);
+        $perPage = $request->get('per_page', 10);
         $attendances = $event->presensis()
             ->with('user:id,name,email,angkatan')
             ->orderBy('scanned_at', 'asc')
@@ -459,43 +459,16 @@ class EventController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => [
-                'event'        => $event->only(['id', 'event_title', 'event_date', 'location']),
-                'attendances'  => $attendances->items(),
-                'total'        => $attendances->total(),
+            'data' => [
+                'event' => $event->only(['id', 'event_title', 'event_date', 'location']),
+                'attendances' => $attendances->items(),
+                'total' => $attendances->total(),
                 'current_page' => $attendances->currentPage(),
-                'last_page'    => $attendances->lastPage(),
+                'last_page' => $attendances->lastPage(),
             ],
         ]);
     }
 
-    #[OA\Get(
-        path: '/api/admin/events/{id}/qr-image',
-        operationId: 'adminGetEventQrImage',
-        summary: 'Display QR Code image',
-        description: 'Returns the QR Code SVG image of a specific event directly in browser.',
-        security: [['bearerAuth' => []]],
-        tags: ['Admin - Event Management'],
-        parameters: [
-            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer', example: 1)),
-        ],
-        responses: [
-            new OA\Response(
-                response: 200,
-                description: 'QR Code SVG image',
-                content: new OA\MediaType(
-                    mediaType: 'image/svg+xml',
-                    schema: new OA\Schema(type: 'string', format: 'binary')
-                )
-            ),
-            new OA\Response(response: 404, description: 'Event or QR not found',
-                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
-            ),
-            new OA\Response(response: 403, description: 'Forbidden',
-                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
-            ),
-        ]
-    )]
     public function qrImage(int $id): mixed
     {
         $event = Event::find($id);
@@ -523,8 +496,8 @@ class EventController extends Controller
         security: [['bearerAuth' => []]],
         tags: ['Admin - Event Management'],
         parameters: [
-            new OA\Parameter(name: 'id',       in: 'path',  required: true,  schema: new OA\Schema(type: 'integer')),
-            new OA\Parameter(name: 'status',   in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['registered', 'attended', 'absent'])),
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['registered', 'attended', 'absent'])),
             new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', example: 10)),
         ],
         responses: [
@@ -536,27 +509,27 @@ class EventController extends Controller
                         new OA\Property(property: 'success', type: 'boolean', example: true),
                         new OA\Property(property: 'data', type: 'object',
                             properties: [
-                                new OA\Property(property: 'event',         ref: '#/components/schemas/Event'),
+                                new OA\Property(property: 'event', ref: '#/components/schemas/Event'),
                                 new OA\Property(property: 'summary', type: 'object',
                                     properties: [
                                         new OA\Property(property: 'total_registered', type: 'integer', example: 80),
-                                        new OA\Property(property: 'total_attended',   type: 'integer', example: 60),
-                                        new OA\Property(property: 'total_absent',     type: 'integer', example: 20),
-                                        new OA\Property(property: 'quota',            type: 'integer', example: 100),
-                                        new OA\Property(property: 'remaining_quota',  type: 'integer', example: 20),
+                                        new OA\Property(property: 'total_attended', type: 'integer', example: 60),
+                                        new OA\Property(property: 'total_absent', type: 'integer', example: 20),
+                                        new OA\Property(property: 'quota', type: 'integer', example: 100),
+                                        new OA\Property(property: 'remaining_quota', type: 'integer', example: 20),
                                     ]
                                 ),
                                 new OA\Property(property: 'registrations', type: 'array', items: new OA\Items(ref: '#/components/schemas/EventRegistration')),
-                                new OA\Property(property: 'total',         type: 'integer', example: 80),
-                                new OA\Property(property: 'current_page',  type: 'integer', example: 1),
-                                new OA\Property(property: 'last_page',     type: 'integer', example: 8),
+                                new OA\Property(property: 'total', type: 'integer', example: 80),
+                                new OA\Property(property: 'current_page', type: 'integer', example: 1),
+                                new OA\Property(property: 'last_page', type: 'integer', example: 8),
                             ]
                         ),
                     ]
                 )
             ),
             new OA\Response(response: 404, description: 'Event not found', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-            new OA\Response(response: 403, description: 'Forbidden',        content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
     public function registrations(Request $request, int $id): JsonResponse
@@ -573,24 +546,24 @@ class EventController extends Controller
             $query->where('status', $request->status);
         }
 
-        $perPage       = $request->get('per_page', 10);
+        $perPage = $request->get('per_page', 10);
         $registrations = $query->orderBy('registered_at', 'asc')->paginate($perPage);
 
         return response()->json([
             'success' => true,
-            'data'    => [
-                'event'   => $event->only(['id', 'event_title', 'event_date', 'location', 'quota']),
+            'data' => [
+                'event' => $event->only(['id', 'event_title', 'event_date', 'location', 'quota']),
                 'summary' => [
                     'total_registered' => $event->registrations()->count(),
-                    'total_attended'   => $event->registrations()->where('status', 'attended')->count(),
-                    'total_absent'     => $event->registrations()->where('status', 'absent')->count(),
-                    'quota'            => $event->quota,
-                    'remaining_quota'  => $event->remainingQuota(),
+                    'total_attended' => $event->registrations()->where('status', 'attended')->count(),
+                    'total_absent' => $event->registrations()->where('status', 'absent')->count(),
+                    'quota' => $event->quota,
+                    'remaining_quota' => $event->remainingQuota(),
                 ],
                 'registrations' => $registrations->items(),
-                'total'         => $registrations->total(),
-                'current_page'  => $registrations->currentPage(),
-                'last_page'     => $registrations->lastPage(),
+                'total' => $registrations->total(),
+                'current_page' => $registrations->currentPage(),
+                'last_page' => $registrations->lastPage(),
             ],
         ]);
     }

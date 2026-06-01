@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\BroadcastLog;
 use App\Models\Event;
 use App\Models\EventRegistration;
 use App\Models\User;
@@ -66,23 +67,29 @@ class BroadcastController extends Controller
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'message', type: 'string',  example: 'Broadcast berhasil dikirim ke 45 alumni'),
+                        new OA\Property(property: 'message', type: 'string', example: 'Broadcast berhasil dikirim ke 45 alumni'),
                         new OA\Property(
                             property: 'data',
                             type: 'object',
                             properties: [
-                                new OA\Property(property: 'target',      type: 'string',  example: 'registered'),
-                                new OA\Property(property: 'total_sent',  type: 'integer', example: 45),
-                                new OA\Property(property: 'event',       ref: '#/components/schemas/Event'),
+                                new OA\Property(property: 'target', type: 'string', example: 'registered'),
+                                new OA\Property(property: 'total_sent', type: 'integer', example: 45),
+                                new OA\Property(property: 'event', ref: '#/components/schemas/Event'),
+                                new OA\Property(
+                                    property: 'fonnte',
+                                    type: 'object',
+                                    nullable: true,
+                                    example: ['status' => true, 'detail' => 'success']
+                                ),
                             ]
                         ),
                     ]
                 )
             ),
             new OA\Response(response: 400, description: 'Broadcast failed atau tidak ada penerima', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-            new OA\Response(response: 404, description: 'Event not found',  content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Event not found', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
             new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')),
-            new OA\Response(response: 403, description: 'Forbidden',        content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
     public function send(Request $request, int $id): JsonResponse
@@ -97,10 +104,10 @@ class BroadcastController extends Controller
         }
 
         $validated = $request->validate([
-            'target'         => 'sometimes|string|in:all,registered,custom',
-            'numbers'        => 'required_if:target,custom|array',
-            'numbers.*'      => 'string',
-            'custom_message' => 'nullable|string|max:1000',
+            'target' => 'sometimes|string|in:all,registered,custom',
+            'numbers' => 'required_if:target,custom|array|min:1',
+            'numbers.*' => 'required|string',
+            'custom_message' => 'nullable|string|max:60000',
         ]);
 
         $target = $validated['target'] ?? 'all';
@@ -112,8 +119,9 @@ class BroadcastController extends Controller
             'all' => User::where('role', 'alumni')
                 ->whereNotNull('phone')
                 ->pluck('phone')
-                ->map(fn($phone) => $this->formatPhoneNumber($phone))
+                ->map(fn ($phone) => $this->formatPhoneNumber($phone))
                 ->filter()
+                ->unique()
                 ->values()
                 ->toArray(),
 
@@ -123,15 +131,17 @@ class BroadcastController extends Controller
                 ->get()
                 ->pluck('user.phone')
                 ->filter()
-                ->map(fn($phone) => $this->formatPhoneNumber($phone))
+                ->map(fn ($phone) => $this->formatPhoneNumber($phone))
                 ->filter()
+                ->unique()
                 ->values()
                 ->toArray(),
 
             // Input nomor manual dari request
-            'custom' => collect($validated['numbers'])
-                ->map(fn($phone) => $this->formatPhoneNumber($phone))
+            'custom' => collect($validated['numbers'] ?? [])
+                ->map(fn ($phone) => $this->formatPhoneNumber($phone))
                 ->filter()
+                ->unique()
                 ->values()
                 ->toArray(),
         };
@@ -140,9 +150,9 @@ class BroadcastController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => match ($target) {
-                    'all'        => 'Tidak ada alumni dengan nomor HP terdaftar',
+                    'all' => 'Tidak ada alumni dengan nomor HP terdaftar',
                     'registered' => 'Belum ada alumni yang mendaftar event ini',
-                    'custom'     => 'Tidak ada nomor tujuan yang valid',
+                    'custom' => 'Tidak ada nomor tujuan yang valid',
                 },
             ], 400);
         }
@@ -154,19 +164,41 @@ class BroadcastController extends Controller
         $result = $this->whatsapp->sendBroadcast($numbers, $message);
 
         if (! $result['success']) {
+            BroadcastLog::query()->create([
+                'event_id' => $event->id,
+                'target' => $target,
+                'total_targets' => count($numbers),
+                'status' => ($result['sender_status'] ?? null) === 'blocked' ? 'blocked' : 'failed',
+                'sender_status' => $result['sender_status'] ?? null,
+                'message' => $result['message'],
+                'blocked_reason' => $result['blocked_reason'] ?? null,
+                'fonnte' => $result['detail'] ?? null,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => $result['message'],
+                'sender_status' => $result['sender_status'] ?? null,
+                'blocked_reason' => $result['blocked_reason'] ?? null,
+                'data' => [
+                    'target' => $target,
+                    'total_targets' => count($numbers),
+                    'fonnte' => $result['detail'] ?? null,
+                    'sender_status' => $result['sender_status'] ?? null,
+                    'blocked_reason' => $result['blocked_reason'] ?? null,
+                ],
             ], 400);
         }
 
         return response()->json([
             'success' => true,
-            'message' => "Broadcast berhasil dikirim ke " . count($numbers) . " alumni",
-            'data'    => [
-                'target'     => $target,
+            'message' => 'Broadcast berhasil dikirim ke '.count($numbers).' alumni',
+            'data' => [
+                'target' => $target,
                 'total_sent' => count($numbers),
-                'event'      => $event,
+                'event' => $event,
+                'fonnte' => $result['detail'] ?? null,
+                'sender_status' => $result['sender_status'] ?? null,
             ],
         ]);
     }
@@ -187,6 +219,20 @@ class BroadcastController extends Controller
                 description: 'all | registered | custom',
                 schema: new OA\Schema(type: 'string', enum: ['all', 'registered', 'custom'], example: 'all')
             ),
+            new OA\Parameter(
+                name: 'numbers[]',
+                in: 'query',
+                required: false,
+                description: 'Nomor tujuan untuk preview target custom. Bisa dikirim berulang, contoh numbers[]=081234567890&numbers[]=628987654321.',
+                schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'string'))
+            ),
+            new OA\Parameter(
+                name: 'custom_message',
+                in: 'query',
+                required: false,
+                description: 'Opsional untuk preview pesan custom',
+                schema: new OA\Schema(type: 'string')
+            ),
         ],
         responses: [
             new OA\Response(
@@ -199,15 +245,16 @@ class BroadcastController extends Controller
                             property: 'data',
                             type: 'object',
                             properties: [
-                                new OA\Property(property: 'message',       type: 'string',  example: '🕌 *Presensi Event Alumni Pesantren*...'),
-                                new OA\Property(property: 'target',        type: 'string',  example: 'registered'),
+                                new OA\Property(property: 'message', type: 'string', example: '🕌 *Presensi Event Alumni Pesantren*...'),
+                                new OA\Property(property: 'target', type: 'string', example: 'registered'),
                                 new OA\Property(property: 'total_targets', type: 'integer', example: 45),
                                 new OA\Property(
                                     property: 'breakdown',
                                     type: 'object',
                                     properties: [
-                                        new OA\Property(property: 'total_all',        type: 'integer', example: 120),
+                                        new OA\Property(property: 'total_all', type: 'integer', example: 120),
                                         new OA\Property(property: 'total_registered', type: 'integer', example: 45),
+                                        new OA\Property(property: 'total_custom', type: 'integer', example: 2),
                                     ]
                                 ),
                             ]
@@ -229,28 +276,56 @@ class BroadcastController extends Controller
             ], 404);
         }
 
-        $target  = $request->get('target', 'all');
-        $message = $this->buildMessageByTarget($event, $target);
+        $validated = $request->validate([
+            'target' => 'sometimes|string|in:all,registered,custom',
+            'numbers' => 'sometimes|array',
+            'numbers.*' => 'required|string',
+            'custom_message' => 'nullable|string|max:60000',
+        ]);
 
-        $totalAll        = User::where('role', 'alumni')->whereNotNull('phone')->count();
+        $target = $validated['target'] ?? 'all';
+        $message = $validated['custom_message'] ?? $this->buildMessageByTarget($event, $target);
+
+        $totalAll = User::where('role', 'alumni')
+            ->whereNotNull('phone')
+            ->pluck('phone')
+            ->map(fn ($phone) => $this->formatPhoneNumber($phone))
+            ->filter()
+            ->unique()
+            ->count();
+
         $totalRegistered = EventRegistration::where('event_id', $event->id)
-            ->whereHas('user', fn($q) => $q->whereNotNull('phone'))
+            ->with('user:id,phone')
+            ->get()
+            ->pluck('user.phone')
+            ->filter()
+            ->map(fn ($phone) => $this->formatPhoneNumber($phone))
+            ->filter()
+            ->unique()
+            ->count();
+
+        $totalCustom = collect($validated['numbers'] ?? [])
+            ->map(fn ($phone) => $this->formatPhoneNumber($phone))
+            ->filter()
+            ->unique()
             ->count();
 
         $totalTargets = match ($target) {
             'registered' => $totalRegistered,
-            default      => $totalAll,
+            'custom' => $totalCustom,
+            default => $totalAll,
         };
 
         return response()->json([
             'success' => true,
-            'data'    => [
-                'message'       => $message,
-                'target'        => $target,
+            'data' => [
+                'message' => $message,
+                'target' => $target,
                 'total_targets' => $totalTargets,
-                'breakdown'     => [
-                    'total_all'        => $totalAll,
+                'breakdown' => [
+                    'total_all' => $totalAll,
                     'total_registered' => $totalRegistered,
+                    'total_custom' => $totalCustom,
                 ],
             ],
         ]);
@@ -279,11 +354,11 @@ class BroadcastController extends Controller
         $phone = preg_replace('/[^0-9]/', '', $phone);
 
         if (str_starts_with($phone, '0')) {
-            $phone = '62' . substr($phone, 1);
+            $phone = '62'.substr($phone, 1);
         }
 
         if (! str_starts_with($phone, '62')) {
-            $phone = '62' . $phone;
+            $phone = '62'.$phone;
         }
 
         $withoutCode = substr($phone, 2);

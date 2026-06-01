@@ -15,110 +15,11 @@
         }
     ],
     "paths": {
-        "/api/admin/change-password": {
-            "put": {
-                "tags": ["Admin - Profile Management"],
-                "summary": "Change admin password",
-                "description": "Changes the password of the currently authenticated admin user. Admin only.",
-                "operationId": "adminChangePassword",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "current_password",
-                                    "new_password",
-                                    "new_password_confirmation"
-                                ],
-                                "properties": {
-                                    "current_password": {
-                                        "type": "string",
-                                        "format": "password",
-                                        "example": "oldpassword123",
-                                        "description": "Current admin password."
-                                    },
-                                    "new_password": {
-                                        "type": "string",
-                                        "format": "password",
-                                        "minLength": 8,
-                                        "example": "newpassword123",
-                                        "description": "New password. Minimum 8 characters."
-                                    },
-                                    "new_password_confirmation": {
-                                        "type": "string",
-                                        "format": "password",
-                                        "example": "newpassword123",
-                                        "description": "Confirmation of the new password. Must match new_password."
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Password changed successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Password changed successfully"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthenticated",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ValidationError"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
         "/api/admin/users": {
             "get": {
-                "tags": ["Admin - User Management"],
+                "tags": [
+                    "Admin - User Management"
+                ],
                 "summary": "Get all alumni users",
                 "description": "Returns a paginated list of all alumni users. Admin only.",
                 "operationId": "adminGetAllUsers",
@@ -212,7 +113,9 @@
                 ]
             },
             "post": {
-                "tags": ["Admin - User Management"],
+                "tags": [
+                    "Admin - User Management"
+                ],
                 "summary": "Create a new alumni user",
                 "description": "Creates a new alumni account manually by admin.",
                 "operationId": "adminCreateUser",
@@ -320,7 +223,9 @@
         },
         "/api/admin/users/{id}": {
             "get": {
-                "tags": ["Admin - User Management"],
+                "tags": [
+                    "Admin - User Management"
+                ],
                 "summary": "Get a specific alumni user",
                 "description": "Returns detail of a specific alumni user by ID. Admin only.",
                 "operationId": "adminGetUser",
@@ -389,7 +294,9 @@
                 ]
             },
             "put": {
-                "tags": ["Admin - User Management"],
+                "tags": [
+                    "Admin - User Management"
+                ],
                 "summary": "Update an alumni user",
                 "description": "Updates data of a specific alumni user. Admin only.",
                 "operationId": "adminUpdateUser",
@@ -511,7 +418,9 @@
                 ]
             },
             "delete": {
-                "tags": ["Admin - User Management"],
+                "tags": [
+                    "Admin - User Management"
+                ],
                 "summary": "Delete an alumni user",
                 "description": "Permanently deletes an alumni user by ID. Admin only.",
                 "operationId": "adminDeleteUser",
@@ -576,9 +485,110 @@
                 ]
             }
         },
+        "/api/admin/change-password": {
+            "put": {
+                "tags": [
+                    "Admin - Profile Management"
+                ],
+                "summary": "Change admin password",
+                "description": "Changes the password of the currently authenticated admin user.",
+                "operationId": "adminChangePassword",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "current_password",
+                                    "new_password",
+                                    "new_password_confirmation"
+                                ],
+                                "properties": {
+                                    "current_password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "oldpassword123"
+                                    },
+                                    "new_password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "newpassword123"
+                                    },
+                                    "new_password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "newpassword123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password changed successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Password changed successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/events/{id}/broadcast": {
             "post": {
-                "tags": ["Admin - Broadcast"],
+                "tags": [
+                    "Admin - Broadcast"
+                ],
                 "summary": "Broadcast event info via WhatsApp",
                 "description": "Sends WhatsApp broadcast to alumni. Target options: \"all\" = semua alumni, \"registered\" = yang sudah daftar event ini, \"custom\" = nomor pilihan manual.",
                 "operationId": "broadcastEvent",
@@ -604,7 +614,11 @@
                                         "description": "all = semua alumni | registered = yang sudah daftar event ini | custom = input nomor manual",
                                         "type": "string",
                                         "example": "all",
-                                        "enum": ["all", "registered", "custom"]
+                                        "enum": [
+                                            "all",
+                                            "registered",
+                                            "custom"
+                                        ]
                                     },
                                     "numbers": {
                                         "description": "Wajib diisi jika target = custom",
@@ -653,6 +667,14 @@
                                                 },
                                                 "event": {
                                                     "$ref": "#/components/schemas/Event"
+                                                },
+                                                "fonnte": {
+                                                    "type": "object",
+                                                    "example": {
+                                                        "status": true,
+                                                        "detail": "success"
+                                                    },
+                                                    "nullable": true
                                                 }
                                             },
                                             "type": "object"
@@ -713,7 +735,9 @@
         },
         "/api/admin/events/{id}/broadcast/preview": {
             "get": {
-                "tags": ["Admin - Broadcast"],
+                "tags": [
+                    "Admin - Broadcast"
+                ],
                 "summary": "Preview broadcast message",
                 "description": "Returns preview pesan WA dan jumlah penerima berdasarkan target.",
                 "operationId": "previewBroadcast",
@@ -735,7 +759,32 @@
                         "schema": {
                             "type": "string",
                             "example": "all",
-                            "enum": ["all", "registered", "custom"]
+                            "enum": [
+                                "all",
+                                "registered",
+                                "custom"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "numbers[]",
+                        "in": "query",
+                        "description": "Nomor tujuan untuk preview target custom. Bisa dikirim berulang, contoh numbers[]=081234567890&numbers[]=628987654321.",
+                        "required": false,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    {
+                        "name": "custom_message",
+                        "in": "query",
+                        "description": "Opsional untuk preview pesan custom",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 ],
@@ -773,6 +822,10 @@
                                                         "total_registered": {
                                                             "type": "integer",
                                                             "example": 45
+                                                        },
+                                                        "total_custom": {
+                                                            "type": "integer",
+                                                            "example": 2
                                                         }
                                                     },
                                                     "type": "object"
@@ -806,7 +859,9 @@
         },
         "/api/admin/event-categories": {
             "get": {
-                "tags": ["Admin - Event Management"],
+                "tags": [
+                    "Admin - Event Management"
+                ],
                 "summary": "Get event categories",
                 "description": "Returns list of event categories for admin event form. Admin only.",
                 "operationId": "adminGetEventCategories",
@@ -882,7 +937,9 @@
         },
         "/api/admin/events": {
             "get": {
-                "tags": ["Admin - Event Management"],
+                "tags": [
+                    "Admin - Event Management"
+                ],
                 "summary": "Get all events",
                 "description": "Returns paginated list of all events. Admin only.",
                 "operationId": "adminGetAllEvents",
@@ -901,7 +958,10 @@
                         "required": false,
                         "schema": {
                             "type": "string",
-                            "enum": ["active", "inactive"]
+                            "enum": [
+                                "active",
+                                "inactive"
+                            ]
                         }
                     },
                     {
@@ -990,7 +1050,9 @@
                 ]
             },
             "post": {
-                "tags": ["Admin - Event Management"],
+                "tags": [
+                    "Admin - Event Management"
+                ],
                 "summary": "Create a new event",
                 "description": "Creates a new event and auto-generates a QR code. Admin only.",
                 "operationId": "adminCreateEvent",
@@ -1104,7 +1166,9 @@
         },
         "/api/admin/events/{id}": {
             "get": {
-                "tags": ["Admin - Event Management"],
+                "tags": [
+                    "Admin - Event Management"
+                ],
                 "summary": "Get event detail",
                 "description": "Returns detail of a specific event including attendance count.",
                 "operationId": "adminGetEvent",
@@ -1175,7 +1239,9 @@
                 ]
             },
             "put": {
-                "tags": ["Admin - Event Management"],
+                "tags": [
+                    "Admin - Event Management"
+                ],
                 "summary": "Update an event",
                 "description": "Updates event data. QR token is not affected. Admin only.",
                 "operationId": "adminUpdateEvent",
@@ -1299,7 +1365,9 @@
                 ]
             },
             "delete": {
-                "tags": ["Admin - Event Management"],
+                "tags": [
+                    "Admin - Event Management"
+                ],
                 "summary": "Delete an event",
                 "description": "Deletes an event and its QR code image. Admin only.",
                 "operationId": "adminDeleteEvent",
@@ -1364,7 +1432,9 @@
         },
         "/api/admin/events/{id}/toggle": {
             "patch": {
-                "tags": ["Admin - Event Management"],
+                "tags": [
+                    "Admin - Event Management"
+                ],
                 "summary": "Toggle event status",
                 "description": "Toggles event status between active and inactive. Admin only.",
                 "operationId": "adminToggleEvent",
@@ -1438,7 +1508,9 @@
         },
         "/api/admin/events/{id}/attendances": {
             "get": {
-                "tags": ["Admin - Event Management"],
+                "tags": [
+                    "Admin - Event Management"
+                ],
                 "summary": "Get event attendance list",
                 "description": "Returns list of alumni who attended a specific event. Admin only.",
                 "operationId": "adminGetEventAttendances",
@@ -1532,376 +1604,11 @@
                 ]
             }
         },
-        "/api/admin/events/{id}/qr-image": {
-            "get": {
-                "tags": ["Admin - Event QR Management"],
-                "summary": "Display active event QR code image",
-                "description": "Returns the active QR code SVG image of a specific event directly in browser. Admin only.",
-                "operationId": "adminGetEventQrImage",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "ID event",
-                        "required": true,
-                        "schema": {
-                            "type": "integer",
-                            "example": 1
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "QR Code SVG image",
-                        "content": {
-                            "image/svg+xml": {
-                                "schema": {
-                                    "type": "string",
-                                    "format": "binary"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Event or QR code image not found",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthenticated",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/api/admin/events/{id}/qr": {
-            "get": {
-                "tags": ["Admin - Event QR Management"],
-                "summary": "Get active event QR code",
-                "description": "Returns active QR code data for a specific event. Admin only.",
-                "operationId": "adminGetEventQrCode",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "ID event",
-                        "required": true,
-                        "schema": {
-                            "type": "integer",
-                            "example": 1
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Active QR code data",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "data": {
-                                            "type": "object",
-                                            "properties": {
-                                                "qr_code": {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "id": {
-                                                            "type": "integer",
-                                                            "example": 1
-                                                        },
-                                                        "event_id": {
-                                                            "type": "integer",
-                                                            "example": 1
-                                                        },
-                                                        "qr_token": {
-                                                            "type": "string",
-                                                            "example": "550e8400-e29b-41d4-a716-446655440000"
-                                                        },
-                                                        "qr_code_image": {
-                                                            "type": "string",
-                                                            "example": "qrcodes/550e8400-e29b-41d4-a716-446655440000.svg"
-                                                        },
-                                                        "qr_code_url": {
-                                                            "type": "string",
-                                                            "example": "http://localhost:8000/storage/qrcodes/550e8400-e29b-41d4-a716-446655440000.svg"
-                                                        },
-                                                        "timeout_minutes": {
-                                                            "type": "integer",
-                                                            "example": 60
-                                                        },
-                                                        "is_active": {
-                                                            "type": "boolean",
-                                                            "example": true
-                                                        },
-                                                        "created_at": {
-                                                            "type": "string",
-                                                            "format": "date-time",
-                                                            "example": "2026-05-25T13:56:00.000000Z"
-                                                        },
-                                                        "expired_at": {
-                                                            "type": "string",
-                                                            "format": "date-time",
-                                                            "example": "2026-05-25T14:56:00.000000Z"
-                                                        },
-                                                        "is_expired": {
-                                                            "type": "boolean",
-                                                            "example": false
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthenticated",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Event or QR code not found",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/api/admin/events/{id}/qr/generate": {
-            "post": {
-                "tags": ["Admin - Event QR Management"],
-                "summary": "Generate event QR code",
-                "description": "Generates a new QR code for a specific event. Previous active QR code will be deactivated. The QR code will only be valid starting from valid_from and will expire after timeout_minutes. Admin only.",
-                "operationId": "adminGenerateEventQrCode",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "ID event",
-                        "required": true,
-                        "schema": {
-                            "type": "integer",
-                            "example": 1
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": ["valid_from", "timeout_minutes"],
-                                "properties": {
-                                    "valid_from": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                        "example": "2026-05-29T08:00:00",
-                                        "description": "The date and time when the QR code becomes valid."
-                                    },
-                                    "timeout_minutes": {
-                                        "type": "integer",
-                                        "minimum": 1,
-                                        "maximum": 1440,
-                                        "example": 60,
-                                        "description": "QR code validity duration in minutes, counted from valid_from."
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "QR code generated successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "QR code generated successfully"
-                                        },
-                                        "data": {
-                                            "type": "object",
-                                            "properties": {
-                                                "qr_code": {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "id": {
-                                                            "type": "integer",
-                                                            "example": 1
-                                                        },
-                                                        "event_id": {
-                                                            "type": "integer",
-                                                            "example": 1
-                                                        },
-                                                        "qr_token": {
-                                                            "type": "string",
-                                                            "example": "550e8400-e29b-41d4-a716-446655440000"
-                                                        },
-                                                        "qr_code_image": {
-                                                            "type": "string",
-                                                            "example": "qrcodes/550e8400-e29b-41d4-a716-446655440000.svg"
-                                                        },
-                                                        "qr_code_url": {
-                                                            "type": "string",
-                                                            "example": "http://localhost:8000/storage/qrcodes/550e8400-e29b-41d4-a716-446655440000.svg"
-                                                        },
-                                                        "valid_from": {
-                                                            "type": "string",
-                                                            "format": "date-time",
-                                                            "example": "2026-05-29T08:00:00"
-                                                        },
-                                                        "timeout_minutes": {
-                                                            "type": "integer",
-                                                            "example": 60
-                                                        },
-                                                        "is_active": {
-                                                            "type": "boolean",
-                                                            "example": true
-                                                        },
-                                                        "created_at": {
-                                                            "type": "string",
-                                                            "format": "date-time",
-                                                            "example": "2026-05-25T13:56:00.000000Z"
-                                                        },
-                                                        "expired_at": {
-                                                            "type": "string",
-                                                            "format": "date-time",
-                                                            "example": "2026-05-29T09:00:00.000000Z"
-                                                        },
-                                                        "is_valid_now": {
-                                                            "type": "boolean",
-                                                            "example": false
-                                                        },
-                                                        "is_expired": {
-                                                            "type": "boolean",
-                                                            "example": false
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthenticated",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Event not found",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ValidationError"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
         "/api/admin/events/{id}/registrations": {
             "get": {
-                "tags": ["Admin - Event Management"],
+                "tags": [
+                    "Admin - Event Management"
+                ],
                 "summary": "Get event registration list",
                 "description": "Returns list of alumni who registered for a specific event. Admin only.",
                 "operationId": "adminGetEventRegistrations",
@@ -1920,7 +1627,11 @@
                         "required": false,
                         "schema": {
                             "type": "string",
-                            "enum": ["registered", "attended", "absent"]
+                            "enum": [
+                                "registered",
+                                "attended",
+                                "absent"
+                            ]
                         }
                     },
                     {
@@ -2029,9 +1740,369 @@
                 ]
             }
         },
+        "/api/admin/events/{id}/qr": {
+            "get": {
+                "tags": [
+                    "Admin - Event QR Management"
+                ],
+                "summary": "Get active event QR code",
+                "description": "Returns active QR code data for a specific event. Admin only.",
+                "operationId": "adminGetEventQrCode",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Active QR code data",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "qr_code": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "event_id": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "qr_token": {
+                                                            "type": "string",
+                                                            "example": "550e8400-e29b-41d4-a716-446655440000"
+                                                        },
+                                                        "qr_code_image": {
+                                                            "type": "string",
+                                                            "example": "qrcodes/550e8400.svg"
+                                                        },
+                                                        "qr_code_url": {
+                                                            "type": "string",
+                                                            "example": "http://localhost:8000/storage/qrcodes/550e8400.svg"
+                                                        },
+                                                        "timeout_minutes": {
+                                                            "type": "integer",
+                                                            "example": 60
+                                                        },
+                                                        "is_active": {
+                                                            "type": "boolean",
+                                                            "example": true
+                                                        },
+                                                        "created_at": {
+                                                            "type": "string",
+                                                            "example": "2026-05-25T13:56:00.000000Z"
+                                                        },
+                                                        "expired_at": {
+                                                            "type": "string",
+                                                            "example": "2026-05-25T14:56:00.000000Z"
+                                                        },
+                                                        "is_expired": {
+                                                            "type": "boolean",
+                                                            "example": false
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Event or QR code not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/events/{id}/qr/generate": {
+            "post": {
+                "tags": [
+                    "Admin - Event QR Management"
+                ],
+                "summary": "Generate event QR code",
+                "description": "Generates a new QR code for a specific event. Previous active QR code will be deactivated. Admin only.",
+                "operationId": "adminGenerateEventQrCode",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "timeout_minutes"
+                                ],
+                                "properties": {
+                                    "timeout_minutes": {
+                                        "type": "integer",
+                                        "example": 60
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "QR code generated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "QR code generated successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "qr_code": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "event_id": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "qr_token": {
+                                                            "type": "string",
+                                                            "example": "550e8400-e29b-41d4-a716-446655440000"
+                                                        },
+                                                        "qr_code_image": {
+                                                            "type": "string",
+                                                            "example": "qrcodes/550e8400.svg"
+                                                        },
+                                                        "qr_code_url": {
+                                                            "type": "string",
+                                                            "example": "http://localhost:8000/storage/qrcodes/550e8400.svg"
+                                                        },
+                                                        "valid_from": {
+                                                            "type": "string",
+                                                            "example": "2026-05-25T13:56:00.000000Z"
+                                                        },
+                                                        "timeout_minutes": {
+                                                            "type": "integer",
+                                                            "example": 60
+                                                        },
+                                                        "is_active": {
+                                                            "type": "boolean",
+                                                            "example": true
+                                                        },
+                                                        "created_at": {
+                                                            "type": "string",
+                                                            "example": "2026-05-25T13:56:00.000000Z"
+                                                        },
+                                                        "expired_at": {
+                                                            "type": "string",
+                                                            "example": "2026-05-25T14:56:00.000000Z"
+                                                        },
+                                                        "is_valid_now": {
+                                                            "type": "boolean",
+                                                            "example": true
+                                                        },
+                                                        "is_expired": {
+                                                            "type": "boolean",
+                                                            "example": false
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Event not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/events/{id}/qr-image": {
+            "get": {
+                "tags": [
+                    "Admin - Event QR Management"
+                ],
+                "summary": "Display active event QR Code image",
+                "description": "Returns the active QR Code SVG image of a specific event directly in browser. Admin only.",
+                "operationId": "adminGetGeneratedEventQrImage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "QR Code SVG image",
+                        "content": {
+                            "image/svg+xml": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Event or QR code image not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/auth/register": {
             "post": {
-                "tags": ["Authentication"],
+                "tags": [
+                    "Authentication"
+                ],
                 "summary": "Register a new alumni user",
                 "description": "Creates a new alumni account and returns an access token.",
                 "operationId": "register",
@@ -2059,7 +2130,10 @@
                                     "gender": {
                                         "type": "string",
                                         "example": "Laki-laki",
-                                        "enum": ["Laki-laki", "Perempuan"]
+                                        "enum": [
+                                            "Laki-laki",
+                                            "Perempuan"
+                                        ]
                                     },
                                     "email": {
                                         "type": "string",
@@ -2147,7 +2221,9 @@
         },
         "/api/auth/login": {
             "post": {
-                "tags": ["Authentication"],
+                "tags": [
+                    "Authentication"
+                ],
                 "summary": "Login user",
                 "description": "Authenticates user credentials and returns an access token.",
                 "operationId": "login",
@@ -2156,7 +2232,10 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "required": ["email", "password"],
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
                                 "properties": {
                                     "email": {
                                         "type": "string",
@@ -2236,7 +2315,9 @@
         },
         "/api/auth/logout": {
             "post": {
-                "tags": ["Authentication"],
+                "tags": [
+                    "Authentication"
+                ],
                 "summary": "Logout user",
                 "description": "Revokes the current user access token.",
                 "operationId": "logout",
@@ -2281,7 +2362,9 @@
         },
         "/api/auth/me": {
             "get": {
-                "tags": ["Authentication"],
+                "tags": [
+                    "Authentication"
+                ],
                 "summary": "Get authenticated user profile",
                 "description": "Returns the currently authenticated user data.",
                 "operationId": "me",
@@ -2330,7 +2413,9 @@
         },
         "/api/auth/profile": {
             "put": {
-                "tags": ["Authentication"],
+                "tags": [
+                    "Authentication"
+                ],
                 "summary": "Update alumni profile",
                 "description": "Updates the authenticated alumni profile data.",
                 "operationId": "updateProfile",
@@ -2350,7 +2435,10 @@
                                     },
                                     "gender": {
                                         "type": "string",
-                                        "enum": ["Laki-laki", "Perempuan"]
+                                        "enum": [
+                                            "Laki-laki",
+                                            "Perempuan"
+                                        ]
                                     },
                                     "phone": {
                                         "type": "string",
@@ -2430,7 +2518,9 @@
         },
         "/api/auth/profile/avatar": {
             "post": {
-                "tags": ["Authentication"],
+                "tags": [
+                    "Authentication"
+                ],
                 "summary": "Upload profile avatar",
                 "description": "Uploads a new profile picture for the authenticated user.",
                 "operationId": "uploadAvatar",
@@ -2506,7 +2596,9 @@
         },
         "/api/presensi/scan": {
             "post": {
-                "tags": ["Presensi"],
+                "tags": [
+                    "Presensi"
+                ],
                 "summary": "Scan QR code for attendance",
                 "description": "Alumni scans QR code to record attendance. Validates event status, time window, and prevents double scan.",
                 "operationId": "scanPresensi",
@@ -2515,7 +2607,9 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "required": ["qr_token"],
+                                "required": [
+                                    "qr_token"
+                                ],
                                 "properties": {
                                     "qr_token": {
                                         "type": "string",
@@ -2596,7 +2690,9 @@
         },
         "/api/presensi/history": {
             "get": {
-                "tags": ["Presensi"],
+                "tags": [
+                    "Presensi"
+                ],
                 "summary": "Get alumni attendance history",
                 "description": "Returns the attendance history of the currently logged-in alumni.",
                 "operationId": "presensiHistory",
@@ -2671,7 +2767,9 @@
         },
         "/api/events": {
             "get": {
-                "tags": ["Registration"],
+                "tags": [
+                    "Registration"
+                ],
                 "summary": "Get list of active events",
                 "description": "Returns list of active events available for registration.",
                 "operationId": "getPublicEvents",
@@ -2762,7 +2860,9 @@
         },
         "/api/events/{id}": {
             "get": {
-                "tags": ["Registration"],
+                "tags": [
+                    "Registration"
+                ],
                 "summary": "Get event detail",
                 "description": "Returns detail of a specific event including quota and registration status.",
                 "operationId": "getEventDetail",
@@ -2837,7 +2937,9 @@
         },
         "/api/events/{id}/register": {
             "post": {
-                "tags": ["Registration"],
+                "tags": [
+                    "Registration"
+                ],
                 "summary": "Register for an event",
                 "description": "Alumni registers for an event. Checks quota availability and prevents duplicate registration.",
                 "operationId": "registerEvent",
@@ -2918,7 +3020,9 @@
                 ]
             },
             "delete": {
-                "tags": ["Registration"],
+                "tags": [
+                    "Registration"
+                ],
                 "summary": "Cancel event registration",
                 "description": "Alumni cancels their registration for an event.",
                 "operationId": "cancelRegistration",
@@ -3051,7 +3155,9 @@
                     "errors": {
                         "type": "object",
                         "example": {
-                            "email": ["The email field is required."]
+                            "email": [
+                                "The email field is required."
+                            ]
                         }
                     }
                 },
@@ -3192,6 +3298,10 @@
         {
             "name": "Admin - User Management",
             "description": "Admin - User Management"
+        },
+        {
+            "name": "Admin - Profile Management",
+            "description": "Admin - Profile Management"
         },
         {
             "name": "Admin - Broadcast",
