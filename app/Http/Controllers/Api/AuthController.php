@@ -311,6 +311,42 @@ class AuthController extends Controller
         ]);
     }
 
+    public function changePassword(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'current_password' => ['required', 'string'],
+            'new_password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        if (! Hash::check($validated['current_password'], $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Password saat ini tidak sesuai',
+            ], 422);
+        }
+
+        $user->update([
+            'password' => Hash::make($validated['new_password']),
+            'password_changed_at' => now(),
+        ]);
+
+        $currentTokenId = $request->user()->currentAccessToken()?->id;
+
+        if ($currentTokenId) {
+            $user->tokens()->where('id', '!=', $currentTokenId)->delete();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password berhasil diperbarui',
+            'data' => [
+                'password_changed_at' => $user->fresh()->password_changed_at,
+            ],
+        ]);
+    }
+
     // =========================================================================
     // ── AVATAR UPLOAD ─────────────────────────────────────────────────────────
     // =========================================================================

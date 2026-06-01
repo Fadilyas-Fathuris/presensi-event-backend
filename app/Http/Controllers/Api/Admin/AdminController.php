@@ -322,6 +322,7 @@ class AdminController extends Controller
 
         if (isset($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
+            $validated['password_changed_at'] = now();
         }
 
         $user->update($validated);

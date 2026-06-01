@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -16,6 +17,7 @@ class User extends Authenticatable
         'gender',
         'email',
         'password',
+        'password_changed_at',
         'phone',
         'graduation_year',
         'birth_date',
@@ -30,6 +32,12 @@ class User extends Authenticatable
 
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'password_changed_at' => 'datetime',
         'password'          => 'hashed',
     ];
+
+    public function alumniNotifications(): HasMany
+    {
+        return $this->hasMany(AlumniNotification::class);
+    }
 }

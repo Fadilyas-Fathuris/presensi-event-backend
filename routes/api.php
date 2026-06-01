@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\EventController;
 use App\Http\Controllers\Api\Admin\EventQrCodeController;
 use App\Http\Controllers\Api\Admin\BroadcastController;
 use App\Http\Controllers\Api\Admin\AdminProfileController;
+use App\Http\Controllers\Api\AlumniNotificationController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PresensiController;
 use App\Http\Controllers\Api\RegistrationController;
@@ -21,6 +22,7 @@ Route::prefix('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me',      [AuthController::class, 'me']);
         Route::put('/profile',         [AuthController::class, 'updateProfile']);
+        Route::put('/change-password', [AuthController::class, 'changePassword']);
         Route::post('/profile/avatar', [AuthController::class, 'uploadAvatar']);
     });
 });
@@ -72,6 +74,14 @@ Route::prefix('settings')
         Route::post('/whatsapp/test', [WhatsappSettingsController::class, 'test'])
             ->middleware('throttle:6,1');
     });
+
+// ── Alumni Notifications ──────────────────────────────────────────────────────
+Route::middleware(['auth:sanctum', 'is_alumni'])->group(function () {
+    Route::get('/alumni/notifications', [AlumniNotificationController::class, 'index']);
+    Route::get('/alumni/notifications/unread-count', [AlumniNotificationController::class, 'unreadCount']);
+    Route::put('/alumni/notifications/read-all', [AlumniNotificationController::class, 'markAllAsRead']);
+    Route::put('/alumni/notifications/{id}/read', [AlumniNotificationController::class, 'markAsRead']);
+});
 
 // ── Events & Registration (Alumni) ────────────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
