@@ -7,6 +7,7 @@ use App\Models\Event;
 use App\Models\EventQrCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
@@ -149,7 +150,7 @@ class EventQrCodeController extends Controller
                                         new OA\Property(property: 'is_active', type: 'boolean', example: true),
                                         new OA\Property(property: 'created_at', type: 'string', example: '2026-05-25T13:56:00.000000Z'),
                                         new OA\Property(property: 'expired_at', type: 'string', example: '2026-05-25T14:56:00.000000Z'),
-                                        new OA\Property(property: 'is_valid_now', type: 'boolean', example: true),  
+                                        new OA\Property(property: 'is_valid_now', type: 'boolean', example: true),
                                         new OA\Property(property: 'is_expired', type: 'boolean', example: false),
                                     ]
                                 ),
@@ -180,13 +181,35 @@ class EventQrCodeController extends Controller
             'timeout_minutes' => 'required|integer|min:1|max:1440',
         ]);
 
+        // Parse the datetime string
+        // Frontend might send: "2026-06-02T03:00:00.000Z" (UTC) or "2026-06-02 03:00:00" (no timezone)
+        $validFrom = \Carbon\Carbon::parse($validated['valid_from']);
+
+        // Log for debugging
+        Log::info('QR Generate - Input valid_from', [
+            'input' => $validated['valid_from'],
+            'parsed_timezone' => $validFrom->timezone->getName(),
+            'parsed_datetime' => $validFrom->toDateTimeString(),
+            'app_timezone' => config('app.timezone'),
+        ]);
+
+        // If parsed as UTC but app is not UTC, convert to app timezone
+        if ($validFrom->timezone->getName() === 'UTC' && config('app.timezone') !== 'UTC') {
+            $validFrom->setTimezone(config('app.timezone'));
+            Log::info('QR Generate - Converted to app timezone', [
+                'converted_datetime' => $validFrom->toDateTimeString(),
+            ]);
+        }
+
         EventQrCode::where('event_id', $event->id)
             ->where('is_active', true)
             ->update(['is_active' => false]);
 
         $qrToken = Str::uuid()->toString();
 
-        $qrContent = url("/api/attendance/scan/{$qrToken}");
+        // QR code content: just the token (not full URL)
+        // Frontend will send this token directly to /api/presensi/scan
+        $qrContent = $qrToken;
 
         $qrImage = QrCode::format('svg')
             ->size(400)
@@ -200,8 +223,8 @@ class EventQrCodeController extends Controller
             'event_id' => $event->id,
             'qr_token' => $qrToken,
             'qr_code_image' => $imagePath,
-            'qr_code_url' => Storage::disk('public')->url($imagePath),
-            'valid_from' => $validated['valid_from'],
+            'qr_code_url' => asset('storage/' . $imagePath),
+            'valid_from' => $validFrom,
             'timeout_minutes' => $validated['timeout_minutes'],
             'is_active' => true,
             'created_by' => $request->user()->id,

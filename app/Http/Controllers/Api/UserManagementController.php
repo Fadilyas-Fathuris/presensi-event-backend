@@ -8,9 +8,53 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use OpenApi\Attributes as OA;
 
 class UserManagementController extends Controller
 {
+    #[OA\Get(
+        path: '/api/user-management',
+        operationId: 'getAllUsersManagement',
+        summary: 'Get all users for management',
+        description: 'Returns list of all users for user management. Admin only.',
+        security: [['bearerAuth' => []]],
+        tags: ['User Management'],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'List of users',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: 'data',
+                            type: 'array',
+                            items: new OA\Items(
+                                properties: [
+                                    new OA\Property(property: 'id', type: 'integer', example: 1),
+                                    new OA\Property(property: 'name', type: 'string', example: 'Ahmad Fauzi'),
+                                    new OA\Property(property: 'email', type: 'string', example: 'ahmad@example.com'),
+                                    new OA\Property(property: 'role', type: 'string', example: 'alumni'),
+                                    new OA\Property(property: 'status', type: 'string', example: 'active'),
+                                    new OA\Property(property: 'created_at', type: 'string', example: '2026-01-01T00:00:00.000000Z'),
+                                ],
+                                type: 'object'
+                            )
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 401,
+                description: 'Unauthenticated',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(
+                response: 403,
+                description: 'Forbidden',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function index(): JsonResponse
     {
         $users = User::query()
@@ -23,6 +67,77 @@ class UserManagementController extends Controller
         ]);
     }
 
+    #[OA\Put(
+        path: '/api/user-management/{id}',
+        operationId: 'updateUserManagement',
+        summary: 'Update user data',
+        description: 'Updates user information including name, email, role, and status. Admin only.',
+        security: [['bearerAuth' => []]],
+        tags: ['User Management'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: 'User ID',
+                schema: new OA\Schema(type: 'integer', example: 1)
+            ),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['name', 'email', 'role', 'status'],
+                properties: [
+                    new OA\Property(property: 'name', type: 'string', example: 'Ahmad Fauzi Updated'),
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'ahmad.new@example.com'),
+                    new OA\Property(property: 'role', type: 'string', enum: ['admin', 'alumni', 'user'], example: 'alumni'),
+                    new OA\Property(property: 'status', type: 'string', enum: ['active', 'inactive'], example: 'active'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'User updated successfully',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'User berhasil diperbarui'),
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'id', type: 'integer', example: 1),
+                                new OA\Property(property: 'name', type: 'string', example: 'Ahmad Fauzi Updated'),
+                                new OA\Property(property: 'email', type: 'string', example: 'ahmad.new@example.com'),
+                                new OA\Property(property: 'role', type: 'string', example: 'alumni'),
+                                new OA\Property(property: 'status', type: 'string', example: 'active'),
+                                new OA\Property(property: 'created_at', type: 'string', example: '2026-01-01T00:00:00.000000Z'),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 404,
+                description: 'User not found',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'User tidak ditemukan'),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'Validation error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')
+            ),
+            new OA\Response(
+                response: 403,
+                description: 'Forbidden',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function update(Request $request, int $id): JsonResponse
     {
         $user = User::find($id);
@@ -63,6 +178,48 @@ class UserManagementController extends Controller
         ]);
     }
 
+    #[OA\Delete(
+        path: '/api/user-management/{id}',
+        operationId: 'deleteUserManagement',
+        summary: 'Delete user',
+        description: 'Permanently deletes a user and revokes all their tokens. Admin only.',
+        security: [['bearerAuth' => []]],
+        tags: ['User Management'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: 'User ID',
+                schema: new OA\Schema(type: 'integer', example: 1)
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'User deleted successfully',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'User berhasil dihapus'),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 404,
+                description: 'User not found',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'User tidak ditemukan'),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 403,
+                description: 'Forbidden',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function destroy(int $id): JsonResponse
     {
         $user = User::find($id);

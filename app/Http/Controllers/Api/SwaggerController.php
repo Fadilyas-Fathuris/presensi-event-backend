@@ -36,6 +36,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'phone',       type: 'string',  example: '081234567890'),
         new OA\Property(property: 'angkatan',    type: 'string',  example: '2015'),
         new OA\Property(property: 'role',        type: 'string',  example: 'alumni'),
+        new OA\Property(property: 'avatar_url',  type: 'string',  nullable: true, example: '/storage/avatars/avatar123.jpg'),
         new OA\Property(property: 'created_at',  type: 'string',  format: 'date-time'),
     ]
 )]
@@ -75,8 +76,11 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'end_time',       type: 'string',  format: 'time',     example: '17:00'),
         new OA\Property(property: 'qr_token',       type: 'string',  example: '550e8400-e29b-41d4-a716'),
         new OA\Property(property: 'qr_code_image',  type: 'string',  example: 'qrcodes/550e8400.png'),
-        new OA\Property(property: 'qr_code_url',   type: 'string',  example: 'http://localhost:8000/storage/qrcodes/550e8400.svg'),
+        new OA\Property(property: 'qr_code_url',    type: 'string',  example: 'http://localhost:8000/storage/qrcodes/550e8400.svg'),
+        new OA\Property(property: 'poster_image',   type: 'string',  nullable: true, example: 'event-posters/poster123.jpg'),
+        new OA\Property(property: 'poster_url',     type: 'string',  nullable: true, example: 'http://localhost:8000/storage/event-posters/poster123.jpg'),
         new OA\Property(property: 'status_event',   type: 'string',  example: 'active'),
+        new OA\Property(property: 'quota',          type: 'integer', nullable: true, example: 100),
         new OA\Property(property: 'created_at',     type: 'string',  format: 'date-time'),
     ]
 )]

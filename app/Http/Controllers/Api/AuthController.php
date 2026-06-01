@@ -315,6 +315,54 @@ class AuthController extends Controller
         ]);
     }
 
+    #[OA\Put(
+        path: '/api/auth/change-password',
+        operationId: 'changePassword',
+        summary: 'Change user password',
+        description: 'Changes the password of the authenticated user. Revokes all other tokens except current one.',
+        security: [['bearerAuth' => []]],
+        tags: ['Authentication'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['current_password', 'new_password', 'new_password_confirmation'],
+                properties: [
+                    new OA\Property(property: 'current_password', type: 'string', format: 'password', example: 'oldpassword123'),
+                    new OA\Property(property: 'new_password', type: 'string', format: 'password', example: 'newpassword123'),
+                    new OA\Property(property: 'new_password_confirmation', type: 'string', format: 'password', example: 'newpassword123'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Password changed successfully',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string', example: 'Password berhasil diperbarui'),
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'password_changed_at', type: 'string', example: '2026-06-02T10:00:00.000000Z'),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'Validation error or incorrect current password',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')
+            ),
+            new OA\Response(
+                response: 401,
+                description: 'Unauthenticated',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function changePassword(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -417,8 +465,10 @@ class AuthController extends Controller
 
         // Hapus avatar lama jika ada
         if ($user->avatar_url) {
-            $oldPath = str_replace('/storage/', 'public/', $user->avatar_url);
-            Storage::delete($oldPath);
+            $oldPath = str_replace('/storage/', '', $user->avatar_url);
+            if (Storage::disk('public')->exists($oldPath)) {
+                Storage::disk('public')->delete($oldPath);
+            }
         }
 
         $path = $request->file('avatar')->store('avatars', 'public');
@@ -429,6 +479,54 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'data'    => ['avatar_url' => $url],
+        ]);
+    }
+
+    #[OA\Delete(
+        path: '/api/auth/profile/avatar',
+        operationId: 'deleteAvatar',
+        summary: 'Delete profile avatar',
+        description: 'Removes the profile picture of the authenticated user.',
+        security: [['bearerAuth' => []]],
+        tags: ['Authentication'],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Avatar deleted successfully',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string', example: 'Avatar deleted successfully'),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'No avatar to delete', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function deleteAvatar(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user->avatar_url) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No avatar to delete',
+            ], 404);
+        }
+
+        // Hapus file dari storage
+        $oldPath = str_replace('/storage/', '', $user->avatar_url);
+        if (Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        // Set avatar_url ke null
+        $user->update(['avatar_url' => null]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Avatar deleted successfully',
         ]);
     }
 }

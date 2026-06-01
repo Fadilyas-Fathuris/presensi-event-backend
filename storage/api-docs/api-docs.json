@@ -485,6 +485,108 @@
                 ]
             }
         },
+        "/api/admin/activity-logs": {
+            "get": {
+                "tags": [
+                    "Admin - Activity Logs"
+                ],
+                "summary": "Get admin activity logs",
+                "description": "Returns list of all admin activity logs including user actions. Admin only.",
+                "operationId": "adminGetActivityLogs",
+                "responses": {
+                    "200": {
+                        "description": "List of activity logs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "user_id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "action": {
+                                                        "type": "string",
+                                                        "example": "login"
+                                                    },
+                                                    "description": {
+                                                        "type": "string",
+                                                        "example": "Admin logged in"
+                                                    },
+                                                    "created_at": {
+                                                        "type": "string",
+                                                        "example": "2026-06-01T10:00:00.000000Z"
+                                                    },
+                                                    "user": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "first_name": {
+                                                                "type": "string",
+                                                                "example": "Admin"
+                                                            },
+                                                            "last_name": {
+                                                                "type": "string",
+                                                                "example": "User"
+                                                            },
+                                                            "email": {
+                                                                "type": "string",
+                                                                "example": "admin@example.com"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/change-password": {
             "put": {
                 "tags": [
@@ -1059,7 +1161,7 @@
                 "requestBody": {
                     "required": true,
                     "content": {
-                        "application/json": {
+                        "multipart/form-data": {
                             "schema": {
                                 "required": [
                                     "category_id",
@@ -1100,6 +1202,15 @@
                                         "type": "string",
                                         "format": "time",
                                         "example": "17:00"
+                                    },
+                                    "quota": {
+                                        "type": "integer",
+                                        "example": 100
+                                    },
+                                    "poster": {
+                                        "description": "Event poster image (optional, max 5MB)",
+                                        "type": "string",
+                                        "format": "binary"
                                     }
                                 },
                                 "type": "object"
@@ -1258,7 +1369,7 @@
                 "requestBody": {
                     "required": true,
                     "content": {
-                        "application/json": {
+                        "multipart/form-data": {
                             "schema": {
                                 "properties": {
                                     "category_id": {
@@ -1291,6 +1402,15 @@
                                         "type": "string",
                                         "format": "time",
                                         "example": "16:00"
+                                    },
+                                    "quota": {
+                                        "type": "integer",
+                                        "example": 150
+                                    },
+                                    "poster": {
+                                        "description": "Event poster image (optional, max 5MB)",
+                                        "type": "string",
+                                        "format": "binary"
                                     }
                                 },
                                 "type": "object"
@@ -2098,6 +2218,308 @@
                 ]
             }
         },
+        "/api/notifications": {
+            "get": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Get alumni notifications",
+                "description": "Returns list of notifications for the authenticated alumni user.",
+                "operationId": "getNotifications",
+                "responses": {
+                    "200": {
+                        "description": "List of notifications",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "notifications": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "title": {
+                                                                "type": "string",
+                                                                "example": "Event Baru: Reuni Akbar 2025"
+                                                            },
+                                                            "message": {
+                                                                "type": "string",
+                                                                "example": "Event \"Reuni Akbar 2025\" telah dijadwalkan"
+                                                            },
+                                                            "body": {
+                                                                "type": "string",
+                                                                "example": "Event \"Reuni Akbar 2025\" telah dijadwalkan"
+                                                            },
+                                                            "type": {
+                                                                "type": "string",
+                                                                "example": "upcoming_event"
+                                                            },
+                                                            "priority": {
+                                                                "type": "string",
+                                                                "example": "normal"
+                                                            },
+                                                            "created_at": {
+                                                                "type": "string",
+                                                                "example": "2026-06-01T10:00:00+00:00"
+                                                            },
+                                                            "is_read": {
+                                                                "type": "boolean",
+                                                                "example": false
+                                                            },
+                                                            "read_at": {
+                                                                "type": "string",
+                                                                "example": null,
+                                                                "nullable": true
+                                                            },
+                                                            "data": {
+                                                                "type": "object",
+                                                                "nullable": true
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/notifications/unread-count": {
+            "get": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Get unread notification count",
+                "description": "Returns the count of unread notifications for the authenticated alumni user.",
+                "operationId": "getUnreadNotificationCount",
+                "responses": {
+                    "200": {
+                        "description": "Unread notification count",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "unread_count": {
+                                            "type": "integer",
+                                            "example": 5
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/notifications/{id}/read": {
+            "patch": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Mark notification as read",
+                "description": "Marks a specific notification as read for the authenticated alumni user.",
+                "operationId": "markNotificationAsRead",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Notification ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Notification marked as read",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "notification": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "title": {
+                                                            "type": "string",
+                                                            "example": "Event Baru"
+                                                        },
+                                                        "message": {
+                                                            "type": "string",
+                                                            "example": "Event telah dijadwalkan"
+                                                        },
+                                                        "body": {
+                                                            "type": "string",
+                                                            "example": "Event telah dijadwalkan"
+                                                        },
+                                                        "type": {
+                                                            "type": "string",
+                                                            "example": "upcoming_event"
+                                                        },
+                                                        "priority": {
+                                                            "type": "string",
+                                                            "example": "normal"
+                                                        },
+                                                        "created_at": {
+                                                            "type": "string",
+                                                            "example": "2026-06-01T10:00:00+00:00"
+                                                        },
+                                                        "is_read": {
+                                                            "type": "boolean",
+                                                            "example": true
+                                                        },
+                                                        "read_at": {
+                                                            "type": "string",
+                                                            "example": "2026-06-02T10:00:00+00:00"
+                                                        },
+                                                        "data": {
+                                                            "type": "object",
+                                                            "nullable": true
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Notification not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/notifications/read-all": {
+            "patch": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Mark all notifications as read",
+                "description": "Marks all unread notifications as read for the authenticated alumni user.",
+                "operationId": "markAllNotificationsAsRead",
+                "responses": {
+                    "200": {
+                        "description": "All notifications marked as read",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "updated_count": {
+                                            "type": "integer",
+                                            "example": 5
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/auth/register": {
             "post": {
                 "tags": [
@@ -2516,6 +2938,104 @@
                 ]
             }
         },
+        "/api/auth/change-password": {
+            "put": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Change user password",
+                "description": "Changes the password of the authenticated user. Revokes all other tokens except current one.",
+                "operationId": "changePassword",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "current_password",
+                                    "new_password",
+                                    "new_password_confirmation"
+                                ],
+                                "properties": {
+                                    "current_password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "oldpassword123"
+                                    },
+                                    "new_password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "newpassword123"
+                                    },
+                                    "new_password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "newpassword123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password changed successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Password berhasil diperbarui"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "password_changed_at": {
+                                                    "type": "string",
+                                                    "example": "2026-06-02T10:00:00.000000Z"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error or incorrect current password",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/auth/profile/avatar": {
             "post": {
                 "tags": [
@@ -2592,6 +3112,61 @@
                         "bearerAuth": []
                     }
                 ]
+            },
+            "delete": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Delete profile avatar",
+                "description": "Removes the profile picture of the authenticated user.",
+                "operationId": "deleteAvatar",
+                "responses": {
+                    "200": {
+                        "description": "Avatar deleted successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Avatar deleted successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No avatar to delete",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/presensi/scan": {
@@ -2651,11 +3226,31 @@
                         }
                     },
                     "400": {
-                        "description": "Scan failed (inactive, out of window, or double scan)",
+                        "description": "Scan failed (inactive, expired, out of window, or double scan)",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "User not registered for event",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "QR Code tidak dikenali"
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
@@ -3084,6 +3679,674 @@
                     }
                 ]
             }
+        },
+        "/api/user-management": {
+            "get": {
+                "tags": [
+                    "User Management"
+                ],
+                "summary": "Get all users for management",
+                "description": "Returns list of all users for user management. Admin only.",
+                "operationId": "getAllUsersManagement",
+                "responses": {
+                    "200": {
+                        "description": "List of users",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "Ahmad Fauzi"
+                                                    },
+                                                    "email": {
+                                                        "type": "string",
+                                                        "example": "ahmad@example.com"
+                                                    },
+                                                    "role": {
+                                                        "type": "string",
+                                                        "example": "alumni"
+                                                    },
+                                                    "status": {
+                                                        "type": "string",
+                                                        "example": "active"
+                                                    },
+                                                    "created_at": {
+                                                        "type": "string",
+                                                        "example": "2026-01-01T00:00:00.000000Z"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/user-management/{id}": {
+            "put": {
+                "tags": [
+                    "User Management"
+                ],
+                "summary": "Update user data",
+                "description": "Updates user information including name, email, role, and status. Admin only.",
+                "operationId": "updateUserManagement",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "User ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "role",
+                                    "status"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Ahmad Fauzi Updated"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "ahmad.new@example.com"
+                                    },
+                                    "role": {
+                                        "type": "string",
+                                        "example": "alumni",
+                                        "enum": [
+                                            "admin",
+                                            "alumni",
+                                            "user"
+                                        ]
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "active",
+                                        "enum": [
+                                            "active",
+                                            "inactive"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "User updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "User berhasil diperbarui"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "Ahmad Fauzi Updated"
+                                                },
+                                                "email": {
+                                                    "type": "string",
+                                                    "example": "ahmad.new@example.com"
+                                                },
+                                                "role": {
+                                                    "type": "string",
+                                                    "example": "alumni"
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "active"
+                                                },
+                                                "created_at": {
+                                                    "type": "string",
+                                                    "example": "2026-01-01T00:00:00.000000Z"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "User tidak ditemukan"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "User Management"
+                ],
+                "summary": "Delete user",
+                "description": "Permanently deletes a user and revokes all their tokens. Admin only.",
+                "operationId": "deleteUserManagement",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "User ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User deleted successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "User berhasil dihapus"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "User tidak ditemukan"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/whatsapp-settings": {
+            "get": {
+                "tags": [
+                    "WhatsApp Settings"
+                ],
+                "summary": "Get WhatsApp configuration",
+                "description": "Returns current WhatsApp API configuration including provider, API URL, sender number, and connection status. Admin only.",
+                "operationId": "getWhatsappSettings",
+                "responses": {
+                    "200": {
+                        "description": "WhatsApp configuration",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "provider": {
+                                            "type": "string",
+                                            "example": "fonnte"
+                                        },
+                                        "api_url": {
+                                            "type": "string",
+                                            "example": "https://api.fonnte.com/send"
+                                        },
+                                        "api_token": {
+                                            "type": "string",
+                                            "example": "abc***xyz",
+                                            "nullable": true
+                                        },
+                                        "sender_number": {
+                                            "type": "string",
+                                            "example": "6281234567890",
+                                            "nullable": true
+                                        },
+                                        "sender_status": {
+                                            "type": "string",
+                                            "example": "active"
+                                        },
+                                        "blocked_reason": {
+                                            "type": "string",
+                                            "example": null,
+                                            "nullable": true
+                                        },
+                                        "is_configured": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "connected": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "can_edit": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "last_tested_at": {
+                                            "type": "string",
+                                            "example": "2026-06-01T10:00:00+00:00",
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "WhatsApp Settings"
+                ],
+                "summary": "Update WhatsApp configuration",
+                "description": "Updates WhatsApp API configuration. If api_token contains masked value (***), existing token is kept. Admin only.",
+                "operationId": "updateWhatsappSettings",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "provider",
+                                    "sender_number"
+                                ],
+                                "properties": {
+                                    "provider": {
+                                        "type": "string",
+                                        "example": "fonnte",
+                                        "enum": [
+                                            "fonnte"
+                                        ]
+                                    },
+                                    "api_url": {
+                                        "type": "string",
+                                        "format": "url",
+                                        "example": "https://api.fonnte.com/send",
+                                        "nullable": true
+                                    },
+                                    "api_token": {
+                                        "type": "string",
+                                        "example": "your-api-token-here",
+                                        "nullable": true
+                                    },
+                                    "sender_number": {
+                                        "type": "string",
+                                        "example": "6281234567890"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Configuration updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Konfigurasi WhatsApp berhasil disimpan"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "provider": {
+                                                    "type": "string",
+                                                    "example": "fonnte"
+                                                },
+                                                "api_url": {
+                                                    "type": "string",
+                                                    "example": "https://api.fonnte.com/send"
+                                                },
+                                                "api_token": {
+                                                    "type": "string",
+                                                    "example": "abc***xyz"
+                                                },
+                                                "sender_number": {
+                                                    "type": "string",
+                                                    "example": "6281234567890"
+                                                },
+                                                "sender_status": {
+                                                    "type": "string",
+                                                    "example": "unknown"
+                                                },
+                                                "blocked_reason": {
+                                                    "type": "string",
+                                                    "example": null,
+                                                    "nullable": true
+                                                },
+                                                "is_configured": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                },
+                                                "connected": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                },
+                                                "can_edit": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/whatsapp-settings/test": {
+            "post": {
+                "tags": [
+                    "WhatsApp Settings"
+                ],
+                "summary": "Test WhatsApp connection",
+                "description": "Tests WhatsApp API connection with provided or saved configuration. Can test with temporary config without saving. Admin only.",
+                "operationId": "testWhatsappConnection",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "provider": {
+                                        "type": "string",
+                                        "example": "fonnte",
+                                        "enum": [
+                                            "fonnte"
+                                        ]
+                                    },
+                                    "api_url": {
+                                        "type": "string",
+                                        "format": "url",
+                                        "example": "https://api.fonnte.com/send"
+                                    },
+                                    "api_token": {
+                                        "type": "string",
+                                        "example": "your-api-token-here",
+                                        "nullable": true
+                                    },
+                                    "sender_number": {
+                                        "type": "string",
+                                        "example": "6281234567890"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Connection test successful",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Koneksi WhatsApp berhasil"
+                                        },
+                                        "sender_status": {
+                                            "type": "string",
+                                            "example": "active"
+                                        },
+                                        "blocked_reason": {
+                                            "type": "string",
+                                            "example": null,
+                                            "nullable": true
+                                        },
+                                        "detail": {
+                                            "type": "object",
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Connection test failed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Koneksi WhatsApp gagal"
+                                        },
+                                        "sender_status": {
+                                            "type": "string",
+                                            "example": "blocked"
+                                        },
+                                        "blocked_reason": {
+                                            "type": "string",
+                                            "example": "Invalid API token",
+                                            "nullable": true
+                                        },
+                                        "detail": {
+                                            "type": "object",
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -3121,6 +4384,11 @@
                     "role": {
                         "type": "string",
                         "example": "alumni"
+                    },
+                    "avatar_url": {
+                        "type": "string",
+                        "example": "/storage/avatars/avatar123.jpg",
+                        "nullable": true
                     },
                     "created_at": {
                         "type": "string",
@@ -3216,9 +4484,24 @@
                         "type": "string",
                         "example": "http://localhost:8000/storage/qrcodes/550e8400.svg"
                     },
+                    "poster_image": {
+                        "type": "string",
+                        "example": "event-posters/poster123.jpg",
+                        "nullable": true
+                    },
+                    "poster_url": {
+                        "type": "string",
+                        "example": "http://localhost:8000/storage/event-posters/poster123.jpg",
+                        "nullable": true
+                    },
                     "status_event": {
                         "type": "string",
                         "example": "active"
+                    },
+                    "quota": {
+                        "type": "integer",
+                        "example": 100,
+                        "nullable": true
                     },
                     "created_at": {
                         "type": "string",
@@ -3300,6 +4583,10 @@
             "description": "Admin - User Management"
         },
         {
+            "name": "Admin - Activity Logs",
+            "description": "Admin - Activity Logs"
+        },
+        {
             "name": "Admin - Profile Management",
             "description": "Admin - Profile Management"
         },
@@ -3316,6 +4603,10 @@
             "description": "Admin - Event QR Management"
         },
         {
+            "name": "Notifications",
+            "description": "Notifications"
+        },
+        {
             "name": "Authentication",
             "description": "Authentication"
         },
@@ -3326,6 +4617,14 @@
         {
             "name": "Registration",
             "description": "Registration"
+        },
+        {
+            "name": "User Management",
+            "description": "User Management"
+        },
+        {
+            "name": "WhatsApp Settings",
+            "description": "WhatsApp Settings"
         }
     ]
 }

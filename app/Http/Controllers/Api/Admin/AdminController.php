@@ -394,6 +394,59 @@ class AdminController extends Controller
         ]);
     }
 
+    #[OA\Get(
+        path: '/api/admin/activity-logs',
+        operationId: 'adminGetActivityLogs',
+        summary: 'Get admin activity logs',
+        description: 'Returns list of all admin activity logs including user actions. Admin only.',
+        security: [['bearerAuth' => []]],
+        tags: ['Admin - Activity Logs'],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'List of activity logs',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(
+                            property: 'data',
+                            type: 'array',
+                            items: new OA\Items(
+                                properties: [
+                                    new OA\Property(property: 'id', type: 'integer', example: 1),
+                                    new OA\Property(property: 'user_id', type: 'integer', example: 1),
+                                    new OA\Property(property: 'action', type: 'string', example: 'login'),
+                                    new OA\Property(property: 'description', type: 'string', example: 'Admin logged in'),
+                                    new OA\Property(property: 'created_at', type: 'string', example: '2026-06-01T10:00:00.000000Z'),
+                                    new OA\Property(
+                                        property: 'user',
+                                        type: 'object',
+                                        properties: [
+                                            new OA\Property(property: 'id', type: 'integer', example: 1),
+                                            new OA\Property(property: 'first_name', type: 'string', example: 'Admin'),
+                                            new OA\Property(property: 'last_name', type: 'string', example: 'User'),
+                                            new OA\Property(property: 'email', type: 'string', example: 'admin@example.com'),
+                                        ]
+                                    ),
+                                ],
+                                type: 'object'
+                            )
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 401,
+                description: 'Unauthenticated',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(
+                response: 403,
+                description: 'Forbidden',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function getActivityLogs(): JsonResponse
     {
         $logs = \App\Models\ActivityLog::with('user:id,first_name,last_name,email')

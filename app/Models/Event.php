@@ -23,6 +23,7 @@ class Event extends Model
         'end_time',
         'qr_token',
         'qr_code_image',
+        'poster_image',
         'status_event',
         'quota',
     ];
@@ -32,12 +33,18 @@ class Event extends Model
         'quota'      => 'integer',
     ];
 
-    protected $appends = ['qr_code_url'];
+    protected $appends = ['qr_code_url', 'poster_url'];
 
     public function getQrCodeUrlAttribute(): ?string
     {
         if (! $this->qr_code_image) return null;
         return Storage::disk('public')->url($this->qr_code_image);
+    }
+
+    public function getPosterUrlAttribute(): ?string
+    {
+        if (! $this->poster_image) return null;
+        return asset('storage/' . $this->poster_image);
     }
 
     public function category(): BelongsTo

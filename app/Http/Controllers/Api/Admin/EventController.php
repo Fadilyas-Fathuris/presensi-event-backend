@@ -181,17 +181,22 @@ class EventController extends Controller
         tags: ['Admin - Event Management'],
         requestBody: new OA\RequestBody(
             required: true,
-            content: new OA\JsonContent(
-                required: ['category_id', 'event_title', 'location', 'event_date', 'start_time', 'end_time'],
-                properties: [
-                    new OA\Property(property: 'category_id', type: 'integer', example: 1),
-                    new OA\Property(property: 'event_title', type: 'string', example: 'Reuni Akbar 2025'),
-                    new OA\Property(property: 'description', type: 'string', example: 'Reuni alumni angkatan 2010-2015'),
-                    new OA\Property(property: 'location', type: 'string', example: 'Aula Pesantren'),
-                    new OA\Property(property: 'event_date', type: 'string', format: 'date', example: '2025-12-01'),
-                    new OA\Property(property: 'start_time', type: 'string', format: 'time', example: '08:00'),
-                    new OA\Property(property: 'end_time', type: 'string', format: 'time', example: '17:00'),
-                ]
+            content: new OA\MediaType(
+                mediaType: 'multipart/form-data',
+                schema: new OA\Schema(
+                    required: ['category_id', 'event_title', 'location', 'event_date', 'start_time', 'end_time'],
+                    properties: [
+                        new OA\Property(property: 'category_id', type: 'integer', example: 1),
+                        new OA\Property(property: 'event_title', type: 'string', example: 'Reuni Akbar 2025'),
+                        new OA\Property(property: 'description', type: 'string', example: 'Reuni alumni angkatan 2010-2015'),
+                        new OA\Property(property: 'location', type: 'string', example: 'Aula Pesantren'),
+                        new OA\Property(property: 'event_date', type: 'string', format: 'date', example: '2025-12-01'),
+                        new OA\Property(property: 'start_time', type: 'string', format: 'time', example: '08:00'),
+                        new OA\Property(property: 'end_time', type: 'string', format: 'time', example: '17:00'),
+                        new OA\Property(property: 'quota', type: 'integer', example: 100),
+                        new OA\Property(property: 'poster', type: 'string', format: 'binary', description: 'Event poster image (optional, max 5MB)'),
+                    ]
+                )
             )
         ),
         responses: [
@@ -223,6 +228,7 @@ class EventController extends Controller
             'start_time' => 'required|date_format:H:i',
             'end_time' => 'required|date_format:H:i|after:start_time',
             'quota' => 'nullable|integer|min:1',
+            'poster' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120', // 5MB
         ]);
 
         // Generate unique QR token
@@ -233,11 +239,18 @@ class EventController extends Controller
         $imagePath = "qrcodes/{$qrToken}.svg";
         Storage::disk('public')->put($imagePath, $qrImage);
 
+        // Handle poster upload
+        $posterPath = null;
+        if ($request->hasFile('poster')) {
+            $posterPath = $request->file('poster')->store('event-posters', 'public');
+        }
+
         $event = Event::create([
             ...$validated,
             'created_by' => $request->user()->id,
             'qr_token' => $qrToken,
             'qr_code_image' => $imagePath,
+            'poster_image' => $posterPath,
             'status_event' => 'active',
         ]);
 
@@ -292,16 +305,21 @@ class EventController extends Controller
         ],
         requestBody: new OA\RequestBody(
             required: true,
-            content: new OA\JsonContent(
-                properties: [
-                    new OA\Property(property: 'category_id', type: 'integer', example: 2),
-                    new OA\Property(property: 'event_title', type: 'string', example: 'Reuni Akbar 2025 Updated'),
-                    new OA\Property(property: 'description', type: 'string', example: 'Deskripsi diperbarui'),
-                    new OA\Property(property: 'location', type: 'string', example: 'Gedung Serbaguna'),
-                    new OA\Property(property: 'event_date', type: 'string', format: 'date', example: '2025-12-05'),
-                    new OA\Property(property: 'start_time', type: 'string', format: 'time', example: '09:00'),
-                    new OA\Property(property: 'end_time', type: 'string', format: 'time', example: '16:00'),
-                ]
+            content: new OA\MediaType(
+                mediaType: 'multipart/form-data',
+                schema: new OA\Schema(
+                    properties: [
+                        new OA\Property(property: 'category_id', type: 'integer', example: 2),
+                        new OA\Property(property: 'event_title', type: 'string', example: 'Reuni Akbar 2025 Updated'),
+                        new OA\Property(property: 'description', type: 'string', example: 'Deskripsi diperbarui'),
+                        new OA\Property(property: 'location', type: 'string', example: 'Gedung Serbaguna'),
+                        new OA\Property(property: 'event_date', type: 'string', format: 'date', example: '2025-12-05'),
+                        new OA\Property(property: 'start_time', type: 'string', format: 'time', example: '09:00'),
+                        new OA\Property(property: 'end_time', type: 'string', format: 'time', example: '16:00'),
+                        new OA\Property(property: 'quota', type: 'integer', example: 150),
+                        new OA\Property(property: 'poster', type: 'string', format: 'binary', description: 'Event poster image (optional, max 5MB)'),
+                    ]
+                )
             )
         ),
         responses: [
@@ -340,7 +358,18 @@ class EventController extends Controller
             'start_time' => 'sometimes|date_format:H:i',
             'end_time' => 'sometimes|date_format:H:i|after:start_time',
             'quota' => 'nullable|integer|min:1',
+            'poster' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120', // 5MB
         ]);
+
+        // Handle poster upload
+        if ($request->hasFile('poster')) {
+            // Delete old poster if exists
+            if ($event->poster_image && Storage::disk('public')->exists($event->poster_image)) {
+                Storage::disk('public')->delete($event->poster_image);
+            }
+
+            $validated['poster_image'] = $request->file('poster')->store('event-posters', 'public');
+        }
 
         $event->update($validated);
 
@@ -387,6 +416,11 @@ class EventController extends Controller
         // Delete QR code image from storage
         if ($event->qr_code_image && Storage::disk('public')->exists($event->qr_code_image)) {
             Storage::disk('public')->delete($event->qr_code_image);
+        }
+
+        // Delete poster image from storage
+        if ($event->poster_image && Storage::disk('public')->exists($event->poster_image)) {
+            Storage::disk('public')->delete($event->poster_image);
         }
 
         \App\Models\ActivityLog::log('delete_event', 'Admin deleted event: ' . $event->event_title);

@@ -24,6 +24,7 @@ Route::prefix('auth')->group(function () {
         Route::put('/profile',         [AuthController::class, 'updateProfile']);
         Route::put('/change-password', [AuthController::class, 'changePassword']);
         Route::post('/profile/avatar', [AuthController::class, 'uploadAvatar']);
+        Route::delete('/profile/avatar', [AuthController::class, 'deleteAvatar']);
     });
 });
 
@@ -37,7 +38,7 @@ Route::prefix('admin')
     ->middleware(['auth:sanctum', 'is_admin'])
     ->group(function () {
         Route::put('/change-password', [AdminProfileController::class, 'changePassword']);
-        
+
         // User management
         Route::get('/users',          [AdminController::class, 'getAllUsers']);
         Route::get('/users/{id}',     [AdminController::class, 'getUser']);
@@ -62,7 +63,7 @@ Route::prefix('admin')
         // Broadcast
         Route::post('/events/{id}/broadcast',         [BroadcastController::class, 'send']);
         Route::get('/events/{id}/broadcast/preview',  [BroadcastController::class, 'preview']);
-        
+
         // Activity logs
         Route::get('/activity-logs', [AdminController::class, 'getActivityLogs']);
     });

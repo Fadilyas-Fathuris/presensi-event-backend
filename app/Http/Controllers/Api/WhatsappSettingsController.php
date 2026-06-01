@@ -9,11 +9,50 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use OpenApi\Attributes as OA;
 
 class WhatsappSettingsController extends Controller
 {
     public function __construct(private WhatsappService $whatsapp) {}
 
+    #[OA\Get(
+        path: '/api/whatsapp-settings',
+        operationId: 'getWhatsappSettings',
+        summary: 'Get WhatsApp configuration',
+        description: 'Returns current WhatsApp API configuration including provider, API URL, sender number, and connection status. Admin only.',
+        security: [['bearerAuth' => []]],
+        tags: ['WhatsApp Settings'],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'WhatsApp configuration',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'provider', type: 'string', example: 'fonnte'),
+                        new OA\Property(property: 'api_url', type: 'string', example: 'https://api.fonnte.com/send'),
+                        new OA\Property(property: 'api_token', type: 'string', nullable: true, example: 'abc***xyz'),
+                        new OA\Property(property: 'sender_number', type: 'string', nullable: true, example: '6281234567890'),
+                        new OA\Property(property: 'sender_status', type: 'string', example: 'active'),
+                        new OA\Property(property: 'blocked_reason', type: 'string', nullable: true, example: null),
+                        new OA\Property(property: 'is_configured', type: 'boolean', example: true),
+                        new OA\Property(property: 'connected', type: 'boolean', example: true),
+                        new OA\Property(property: 'can_edit', type: 'boolean', example: true),
+                        new OA\Property(property: 'last_tested_at', type: 'string', nullable: true, example: '2026-06-01T10:00:00+00:00'),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 401,
+                description: 'Unauthenticated',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(
+                response: 403,
+                description: 'Forbidden',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function show(): JsonResponse
     {
         $setting = WhatsappSetting::current();
@@ -34,6 +73,63 @@ class WhatsappSettingsController extends Controller
         ]);
     }
 
+    #[OA\Put(
+        path: '/api/whatsapp-settings',
+        operationId: 'updateWhatsappSettings',
+        summary: 'Update WhatsApp configuration',
+        description: 'Updates WhatsApp API configuration. If api_token contains masked value (***), existing token is kept. Admin only.',
+        security: [['bearerAuth' => []]],
+        tags: ['WhatsApp Settings'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['provider', 'sender_number'],
+                properties: [
+                    new OA\Property(property: 'provider', type: 'string', enum: ['fonnte'], example: 'fonnte'),
+                    new OA\Property(property: 'api_url', type: 'string', format: 'url', nullable: true, example: 'https://api.fonnte.com/send'),
+                    new OA\Property(property: 'api_token', type: 'string', nullable: true, example: 'your-api-token-here'),
+                    new OA\Property(property: 'sender_number', type: 'string', example: '6281234567890'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Configuration updated successfully',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string', example: 'Konfigurasi WhatsApp berhasil disimpan'),
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'provider', type: 'string', example: 'fonnte'),
+                                new OA\Property(property: 'api_url', type: 'string', example: 'https://api.fonnte.com/send'),
+                                new OA\Property(property: 'api_token', type: 'string', example: 'abc***xyz'),
+                                new OA\Property(property: 'sender_number', type: 'string', example: '6281234567890'),
+                                new OA\Property(property: 'sender_status', type: 'string', example: 'unknown'),
+                                new OA\Property(property: 'blocked_reason', type: 'string', nullable: true, example: null),
+                                new OA\Property(property: 'is_configured', type: 'boolean', example: true),
+                                new OA\Property(property: 'connected', type: 'boolean', example: false),
+                                new OA\Property(property: 'can_edit', type: 'boolean', example: true),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'Validation error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')
+            ),
+            new OA\Response(
+                response: 403,
+                description: 'Forbidden',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function update(Request $request): JsonResponse
     {
         $setting = WhatsappSetting::current();
@@ -103,6 +199,63 @@ class WhatsappSettingsController extends Controller
         ]);
     }
 
+    #[OA\Post(
+        path: '/api/whatsapp-settings/test',
+        operationId: 'testWhatsappConnection',
+        summary: 'Test WhatsApp connection',
+        description: 'Tests WhatsApp API connection with provided or saved configuration. Can test with temporary config without saving. Admin only.',
+        security: [['bearerAuth' => []]],
+        tags: ['WhatsApp Settings'],
+        requestBody: new OA\RequestBody(
+            required: false,
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'provider', type: 'string', enum: ['fonnte'], example: 'fonnte'),
+                    new OA\Property(property: 'api_url', type: 'string', format: 'url', example: 'https://api.fonnte.com/send'),
+                    new OA\Property(property: 'api_token', type: 'string', nullable: true, example: 'your-api-token-here'),
+                    new OA\Property(property: 'sender_number', type: 'string', example: '6281234567890'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Connection test successful',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string', example: 'Koneksi WhatsApp berhasil'),
+                        new OA\Property(property: 'sender_status', type: 'string', example: 'active'),
+                        new OA\Property(property: 'blocked_reason', type: 'string', nullable: true, example: null),
+                        new OA\Property(property: 'detail', type: 'object', nullable: true),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 400,
+                description: 'Connection test failed',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: false),
+                        new OA\Property(property: 'message', type: 'string', example: 'Koneksi WhatsApp gagal'),
+                        new OA\Property(property: 'sender_status', type: 'string', example: 'blocked'),
+                        new OA\Property(property: 'blocked_reason', type: 'string', nullable: true, example: 'Invalid API token'),
+                        new OA\Property(property: 'detail', type: 'object', nullable: true),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'Validation error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')
+            ),
+            new OA\Response(
+                response: 403,
+                description: 'Forbidden',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function test(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [

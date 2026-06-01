@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
+use App\Models\EventQrCode;
 use App\Models\Presensi;
 use App\Models\EventRegistration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use OpenApi\Attributes as OA;
 
 class PresensiController extends Controller
@@ -42,8 +44,16 @@ class PresensiController extends Controller
                     ]
                 )
             ),
-            new OA\Response(response: 400, description: 'Scan failed (inactive, out of window, or double scan)',
+            new OA\Response(response: 400, description: 'Scan failed (inactive, expired, out of window, or double scan)',
                 content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 403, description: 'User not registered for event',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: false),
+                        new OA\Property(property: 'message', type: 'string', example: 'QR Code tidak dikenali'),
+                    ]
+                )
             ),
             new OA\Response(response: 404, description: 'QR token not found',
                 content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
@@ -55,21 +65,70 @@ class PresensiController extends Controller
     )]
     public function scan(Request $request): JsonResponse
     {
+        // Log incoming request for debugging
+        Log::info('Presensi Scan Request', [
+            'qr_token_received' => $request->input('qr_token'),
+            'qr_token_length' => strlen($request->input('qr_token')),
+            'qr_token_type' => gettype($request->input('qr_token')),
+            'full_request' => $request->all(),
+            'user_id' => $request->user()->id,
+        ]);
+
         $request->validate([
             'qr_token' => 'required|string',
         ]);
 
-        // 1. Find event by QR token
-        $event = Event::where('qr_token', $request->qr_token)->first();
+        $event = null;
+        $qrCodeRecord = null;
+
+        // 1. Try to find event by NEW QR system (event_qr_codes table)
+        $qrCodeRecord = EventQrCode::where('qr_token', $request->qr_token)
+            ->where('is_active', true)
+            ->first();
+
+        if ($qrCodeRecord) {
+            Log::info('QR Code found in NEW system', ['qr_code_id' => $qrCodeRecord->id]);
+
+            // Check if QR code is still valid (not expired)
+            if ($qrCodeRecord->is_expired) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'QR Code sudah kadaluarsa. Silakan minta admin untuk generate QR code baru.',
+                ], 400);
+            }
+
+            // Check if QR code is valid now (within valid_from and timeout)
+            if (!$qrCodeRecord->is_valid_now) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'QR Code belum aktif atau sudah tidak valid.',
+                ], 400);
+            }
+
+            $event = $qrCodeRecord->event;
+        } else {
+            Log::info('QR Code not found in NEW system, checking OLD system');
+
+            // 2. Fallback: Try OLD QR system (events.qr_token)
+            $event = Event::where('qr_token', $request->qr_token)->first();
+
+            if ($event) {
+                Log::info('QR Code found in OLD system', ['event_id' => $event->id]);
+            }
+        }
 
         if (! $event) {
+            Log::warning('QR Code not found in any system', [
+                'qr_token_searched' => $request->qr_token,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'QR Code tidak valid',
             ], 404);
         }
 
-        // 2. Check event is active
+        // 3. Check event is active
         if ($event->status_event !== 'active') {
             return response()->json([
                 'success' => false,
@@ -77,16 +136,24 @@ class PresensiController extends Controller
             ], 400);
         }
 
-        // 3. Check within attendance time window
-        if (! $event->isWithinAttendanceWindow()) {
+        // 4. Check if user is registered for this event
+        $isRegistered = EventRegistration::where('event_id', $event->id)
+            ->where('user_id', $request->user()->id)
+            ->exists();
+
+        if (!$isRegistered) {
+            Log::warning('User not registered for event', [
+                'user_id' => $request->user()->id,
+                'event_id' => $event->id,
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Presensi hanya dapat dilakukan saat event berlangsung ' .
-                             "({$event->start_time} - {$event->end_time})",
-            ], 400);
+                'message' => 'QR Code tidak dikenali',
+            ], 403);
         }
 
-        // 4. Check double scan
+        // 5. Check double scan
         $alreadyScanned = Presensi::where('event_id', $event->id)
             ->where('user_id', $request->user()->id)
             ->exists();
@@ -98,16 +165,17 @@ class PresensiController extends Controller
             ], 400);
         }
 
-        // 5. Record attendance
+        // 6. Record attendance
         $presensi = Presensi::create([
             'event_id'   => $event->id,
             'user_id'    => $request->user()->id,
             'scanned_at' => now(),
         ]);
 
+        // 7. Update registration status to attended
         EventRegistration::where('event_id', $event->id)
-    ->where('user_id', $request->user()->id)
-    ->update(['status' => 'attended']);
+            ->where('user_id', $request->user()->id)
+            ->update(['status' => 'attended']);
 
         $presensi->load('event:id,event_title,location,event_date');
 
