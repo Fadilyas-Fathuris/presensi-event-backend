@@ -170,25 +170,25 @@ class EventQrCodeController extends Controller
             'timeout_minutes' => 'required|integer|min:1|max:1440',
         ]);
 
-        // Parse the datetime string
-        // Frontend might send: "2026-06-02T03:00:00.000Z" (UTC) or "2026-06-02 03:00:00" (no timezone)
-        $validFrom = \Carbon\Carbon::parse($validated['valid_from']);
+        // Parse the datetime - frontend sends local time (Asia/Jakarta) without timezone suffix
+        // e.g. "2026-06-02 03:00:00"
+        // If frontend sends with timezone suffix (e.g. "...Z" or "+07:00"), 
+        // we need to interpret it as the intended local time, not convert it
+        $rawValidFrom = $validated['valid_from'];
+        
+        // Strip timezone suffix if present, then parse as app timezone
+        $cleanedDateTime = preg_replace('/[TZ]/', ' ', $rawValidFrom);
+        $cleanedDateTime = preg_replace('/[+-]\d{2}:\d{2}$/', '', trim($cleanedDateTime));
+        $cleanedDateTime = trim($cleanedDateTime);
+        
+        $validFrom = \Carbon\Carbon::parse($cleanedDateTime, config('app.timezone'));
 
-        // Log for debugging
         Log::info('QR Generate - Input valid_from', [
-            'input' => $validated['valid_from'],
-            'parsed_timezone' => $validFrom->timezone->getName(),
+            'input' => $rawValidFrom,
+            'cleaned' => $cleanedDateTime,
             'parsed_datetime' => $validFrom->toDateTimeString(),
             'app_timezone' => config('app.timezone'),
         ]);
-
-        // If parsed as UTC but app is not UTC, convert to app timezone
-        if ($validFrom->timezone->getName() === 'UTC' && config('app.timezone') !== 'UTC') {
-            $validFrom->setTimezone(config('app.timezone'));
-            Log::info('QR Generate - Converted to app timezone', [
-                'converted_datetime' => $validFrom->toDateTimeString(),
-            ]);
-        }
 
         EventQrCode::where('event_id', $event->id)
             ->where('is_active', true)

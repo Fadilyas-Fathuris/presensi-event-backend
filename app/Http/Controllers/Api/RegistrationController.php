@@ -190,8 +190,12 @@ class RegistrationController extends Controller
                     ], 400));
                 }
 
-                // Cek event belum lewat
-                if ($event->event_date->isPast() && ! $event->event_date->isToday()) {
+                // Cek event belum lewat (jika hari ini, cek apakah jam selesai sudah lewat)
+                $eventDate = $event->event_date->format('Y-m-d');
+                $endTime = $event->end_time ?? '23:59:59';
+                $eventEnd = \Carbon\Carbon::parse("{$eventDate} {$endTime}");
+
+                if (now()->greaterThan($eventEnd)) {
                     abort(response()->json([
                         'success' => false,
                         'message' => 'Pendaftaran event ini sudah ditutup',
