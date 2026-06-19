@@ -10,6 +10,7 @@ use App\Models\EventRegistration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
 class PresensiController extends Controller
@@ -65,24 +66,36 @@ class PresensiController extends Controller
     )]
     public function scan(Request $request): JsonResponse
     {
-        // Log incoming request for debugging
+        $validated = $request->validate([
+            'qr_token' => 'required|string|max:512',
+        ]);
+
+        $qrToken = $this->normalizeQrToken($validated['qr_token']);
+
         Log::info('Presensi Scan Request', [
-            'qr_token_received' => $request->input('qr_token'),
-            'qr_token_length' => strlen($request->input('qr_token')),
-            'qr_token_type' => gettype($request->input('qr_token')),
-            'full_request' => $request->all(),
+            'qr_token_normalized' => $qrToken,
+            'qr_token_type' => gettype($validated['qr_token']),
             'user_id' => $request->user()->id,
         ]);
 
-        $request->validate([
-            'qr_token' => 'required|string',
-        ]);
+        if (! Str::isUuid($qrToken)) {
+            Log::warning('Invalid QR token format', [
+                'qr_token_received' => $validated['qr_token'],
+                'qr_token_normalized' => $qrToken,
+                'user_id' => $request->user()->id,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'QR Code tidak valid',
+            ], 404);
+        }
 
         $event = null;
         $qrCodeRecord = null;
 
         // 1. Try to find event by NEW QR system (event_qr_codes table)
-        $qrCodeRecord = EventQrCode::where('qr_token', $request->qr_token)
+        $qrCodeRecord = EventQrCode::where('qr_token', $qrToken)
             ->where('is_active', true)
             ->first();
 
@@ -110,7 +123,7 @@ class PresensiController extends Controller
             Log::info('QR Code not found in NEW system, checking OLD system');
 
             // 2. Fallback: Try OLD QR system (events.qr_token)
-            $event = Event::where('qr_token', $request->qr_token)->first();
+            $event = Event::where('qr_token', $qrToken)->first();
 
             if ($event) {
                 Log::info('QR Code found in OLD system', ['event_id' => $event->id]);
@@ -119,7 +132,7 @@ class PresensiController extends Controller
 
         if (! $event) {
             Log::warning('QR Code not found in any system', [
-                'qr_token_searched' => $request->qr_token,
+                'qr_token_searched' => $qrToken,
             ]);
 
             return response()->json([
@@ -184,6 +197,17 @@ class PresensiController extends Controller
             'message' => 'Presensi berhasil dicatat',
             'data'    => ['presensi' => $presensi],
         ], 201);
+    }
+
+    private function normalizeQrToken(string $rawToken): string
+    {
+        $token = trim($rawToken);
+
+        if (preg_match('/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}/', $token, $matches)) {
+            return strtolower($matches[0]);
+        }
+
+        return strtolower($token);
     }
 
     #[OA\Get(

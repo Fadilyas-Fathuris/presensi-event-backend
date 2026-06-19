@@ -25,6 +25,7 @@ class EventQrCode extends Model
     ];
 
     protected $appends = [
+        'qr_payload',
         'expired_at',
         'is_valid_now',
         'is_expired',
@@ -38,6 +39,11 @@ class EventQrCode extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function getQrPayloadAttribute(): string
+    {
+        return $this->qr_token;
     }
 
     public function getExpiredAtAttribute()

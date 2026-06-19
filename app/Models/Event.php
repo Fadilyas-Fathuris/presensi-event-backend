@@ -33,7 +33,12 @@ class Event extends Model
         'quota'      => 'integer',
     ];
 
-    protected $appends = ['qr_code_url', 'poster_url'];
+    protected $appends = ['qr_payload', 'qr_code_url', 'poster_url'];
+
+    public function getQrPayloadAttribute(): ?string
+    {
+        return $this->qr_token;
+    }
 
     public function getQrCodeUrlAttribute(): ?string
     {

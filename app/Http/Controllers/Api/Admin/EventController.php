@@ -3,14 +3,22 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AlumniNotification;
 use App\Models\Category;
 use App\Models\Event;
+use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Throwable;
 
 class EventController extends Controller
 {
@@ -95,25 +103,32 @@ class EventController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
+        $filters = $request->validate([
+            'search' => 'nullable|string|max:255',
+            'status' => 'nullable|in:active,inactive',
+            'category_id' => 'nullable|integer|exists:categories,id',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
         $query = Event::with(['category', 'createdBy']);
 
-        if ($request->filled('search')) {
-            $search = $request->search;
+        if (! empty($filters['search'])) {
+            $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('event_title', 'like', "%{$search}%")
                     ->orWhere('location', 'like', "%{$search}%");
             });
         }
 
-        if ($request->filled('status')) {
-            $query->where('status_event', $request->status);
+        if (! empty($filters['status'])) {
+            $query->where('status_event', $filters['status']);
         }
 
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
+        if (! empty($filters['category_id'])) {
+            $query->where('category_id', $filters['category_id']);
         }
 
-        $perPage = $request->get('per_page', 10);
+        $perPage = $filters['per_page'] ?? 10;
         $events = $query->orderBy('event_date', 'desc')->paginate($perPage);
 
         return response()->json([
@@ -224,20 +239,18 @@ class EventController extends Controller
             'event_title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'location' => 'required|string|max:255',
-            'event_date' => 'required|date|after_or_equal:today',
-            'start_time' => 'required|date_format:H:i',
-            'end_time' => 'required|date_format:H:i|after:start_time',
+            'event_date' => 'required|date_format:Y-m-d|after_or_equal:today',
+            'start_time' => ['required', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
+            'end_time' => ['required', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
             'quota' => 'nullable|integer|min:1',
             'poster' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120', // 5MB
         ]);
 
+        $validated = $this->normalizeEventPayload($validated);
+        $this->ensureEndTimeAfterStartTime($validated['start_time'], $validated['end_time']);
+
         // Generate unique QR token
         $qrToken = Str::uuid()->toString();
-
-        // Generate QR code image and save to storage
-        $qrImage = QrCode::format('svg')->size(400)->generate($qrToken);
-        $imagePath = "qrcodes/{$qrToken}.svg";
-        Storage::disk('public')->put($imagePath, $qrImage);
 
         // Handle poster upload
         $posterPath = null;
@@ -246,10 +259,10 @@ class EventController extends Controller
         }
 
         $event = Event::create([
-            ...$validated,
+            ...Arr::except($validated, ['poster']),
             'created_by' => $request->user()->id,
             'qr_token' => $qrToken,
-            'qr_code_image' => $imagePath,
+            'qr_code_image' => null,
             'poster_image' => $posterPath,
             'status_event' => 'active',
         ]);
@@ -257,34 +270,7 @@ class EventController extends Controller
         $event->load(['category', 'createdBy']);
 
         \App\Models\ActivityLog::log('create_event', 'Admin created a new event: ' . $event->event_title);
-        // Notify all alumni about the new event
-        $alumniUserIds = \App\Models\User::where('role', 'alumni')->pluck('id');
-        $category = $event->category;
-
-        if ($alumniUserIds->isNotEmpty()) {
-            $notifications = $alumniUserIds->map(fn($userId) => [
-                'user_id' => $userId,
-                'title' => 'Event Baru: ' . $event->event_title,
-                'body' => 'Event "' . $event->event_title . '" telah dijadwalkan pada ' . $event->event_date . ' di ' . $event->location,
-                'type' => 'upcoming_event',
-                'priority' => 'normal',
-                'data' => json_encode([
-                    'event_id' => $event->id,
-                    'event_title' => $event->event_title,
-                    'location' => $event->location,
-                    'starts_at' => $event->event_date,
-                    'start_time' => $event->start_time,
-                    'end_time' => $event->end_time,
-                    'category' => $category?->id,
-                    'category_name' => $category?->category_name,
-                ]),
-                'is_read' => false,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ])->toArray();
-
-            \App\Models\AlumniNotification::insert($notifications);
-        }
+        $this->sendNewEventNotifications($event);
 
         return response()->json([
             'success' => true,
@@ -354,12 +340,18 @@ class EventController extends Controller
             'event_title' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
             'location' => 'sometimes|string|max:255',
-            'event_date' => 'sometimes|date',
-            'start_time' => 'sometimes|date_format:H:i',
-            'end_time' => 'sometimes|date_format:H:i|after:start_time',
+            'event_date' => 'sometimes|date_format:Y-m-d',
+            'start_time' => ['sometimes', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
+            'end_time' => ['sometimes', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
             'quota' => 'nullable|integer|min:1',
             'poster' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120', // 5MB
         ]);
+
+        $validated = $this->normalizeEventPayload($validated);
+        $this->ensureEndTimeAfterStartTime(
+            $validated['start_time'] ?? $event->start_time,
+            $validated['end_time'] ?? $event->end_time
+        );
 
         // Handle poster upload
         if ($request->hasFile('poster')) {
@@ -371,7 +363,7 @@ class EventController extends Controller
             $validated['poster_image'] = $request->file('poster')->store('event-posters', 'public');
         }
 
-        $event->update($validated);
+        $event->update(Arr::except($validated, ['poster']));
 
         \App\Models\ActivityLog::log('update_event', 'Admin updated event: ' . $event->event_title);
 
@@ -515,15 +507,19 @@ class EventController extends Controller
     )]
     public function attendances(Request $request, int $id): JsonResponse
     {
+        $filters = $request->validate([
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
         $event = Event::find($id);
 
         if (! $event) {
             return response()->json(['success' => false, 'message' => 'Event not found'], 404);
         }
 
-        $perPage = $request->get('per_page', 10);
+        $perPage = $filters['per_page'] ?? 10;
         $attendances = $event->presensis()
-            ->with('user:id,name,email,angkatan')
+            ->with('user:id,first_name,last_name,email,graduation_year')
             ->orderBy('scanned_at', 'asc')
             ->paginate($perPage);
 
@@ -531,7 +527,7 @@ class EventController extends Controller
             'success' => true,
             'data' => [
                 'event' => $event->only(['id', 'event_title', 'event_date', 'location']),
-                'attendances' => $attendances->items(),
+                'attendances' => $this->formatPaginatorUsers($attendances),
                 'total' => $attendances->total(),
                 'current_page' => $attendances->currentPage(),
                 'last_page' => $attendances->lastPage(),
@@ -547,7 +543,18 @@ class EventController extends Controller
             return response()->json(['success' => false, 'message' => 'Event not found'], 404);
         }
 
-        if (! $event->qr_code_image || ! Storage::disk('public')->exists($event->qr_code_image)) {
+        if (! $event->qr_code_image) {
+            return response()->json([
+                'success' => false,
+                'message' => 'QR image is generated by frontend. Use qr_payload from the event response.',
+                'data' => [
+                    'qr_payload' => $event->qr_payload,
+                    'qr_token' => $event->qr_token,
+                ],
+            ], 410);
+        }
+
+        if (! Storage::disk('public')->exists($event->qr_code_image)) {
             return response()->json(['success' => false, 'message' => 'QR Code image not found'], 404);
         }
 
@@ -604,19 +611,24 @@ class EventController extends Controller
     )]
     public function registrations(Request $request, int $id): JsonResponse
     {
+        $filters = $request->validate([
+            'status' => 'nullable|in:registered,attended,absent',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
         $event = Event::find($id);
 
         if (! $event) {
             return response()->json(['success' => false, 'message' => 'Event not found'], 404);
         }
 
-        $query = $event->registrations()->with('user:id,name,email,phone,angkatan');
+        $query = $event->registrations()->with('user:id,first_name,last_name,email,phone,graduation_year');
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
         }
 
-        $perPage = $request->get('per_page', 10);
+        $perPage = $filters['per_page'] ?? 10;
         $registrations = $query->orderBy('registered_at', 'asc')->paginate($perPage);
 
         return response()->json([
@@ -630,11 +642,123 @@ class EventController extends Controller
                     'quota' => $event->quota,
                     'remaining_quota' => $event->remainingQuota(),
                 ],
-                'registrations' => $registrations->items(),
+                'registrations' => $this->formatPaginatorUsers($registrations),
                 'total' => $registrations->total(),
                 'current_page' => $registrations->currentPage(),
                 'last_page' => $registrations->lastPage(),
             ],
         ]);
+    }
+
+    private function formatPaginatorUsers(LengthAwarePaginator $paginator): array
+    {
+        return collect($paginator->items())
+            ->map(function ($item) {
+                $payload = $item->toArray();
+                $payload['user'] = $item->relationLoaded('user') && $item->user
+                    ? $this->formatEventUser($item->user)
+                    : null;
+
+                return $payload;
+            })
+            ->values()
+            ->all();
+    }
+
+    private function formatEventUser(User $user): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => trim($user->first_name . ' ' . $user->last_name),
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'angkatan' => $user->graduation_year,
+            'graduation_year' => $user->graduation_year,
+        ];
+    }
+
+    private function normalizeEventPayload(array $payload): array
+    {
+        foreach (['start_time', 'end_time'] as $field) {
+            if (! empty($payload[$field])) {
+                $payload[$field] = $this->normalizeTime($payload[$field], $field);
+            }
+        }
+
+        return $payload;
+    }
+
+    private function normalizeTime(string $time, string $field): string
+    {
+        try {
+            return Carbon::parse($time)->format('H:i');
+        } catch (Throwable) {
+            throw ValidationException::withMessages([
+                $field => ['The ' . str_replace('_', ' ', $field) . ' field must be a valid time.'],
+            ]);
+        }
+    }
+
+    private function ensureEndTimeAfterStartTime(?string $startTime, ?string $endTime): void
+    {
+        if (! $startTime || ! $endTime) {
+            return;
+        }
+
+        if (Carbon::parse($endTime)->lessThanOrEqualTo(Carbon::parse($startTime))) {
+            throw ValidationException::withMessages([
+                'end_time' => ['The end time must be after the start time.'],
+            ]);
+        }
+    }
+
+    private function sendNewEventNotifications(Event $event): void
+    {
+        try {
+            if (! Schema::hasTable('alumni_notifications')) {
+                Log::warning('Skipped new event notifications because alumni_notifications table does not exist.', [
+                    'event_id' => $event->id,
+                ]);
+
+                return;
+            }
+
+            $alumniUserIds = User::where('role', 'alumni')->pluck('id');
+            $category = $event->category;
+
+            if ($alumniUserIds->isEmpty()) {
+                return;
+            }
+
+            $notifications = $alumniUserIds->map(fn ($userId) => [
+                'user_id' => $userId,
+                'title' => 'Event Baru: ' . $event->event_title,
+                'body' => 'Event "' . $event->event_title . '" telah dijadwalkan pada ' . $event->event_date->toDateString() . ' di ' . $event->location,
+                'type' => 'upcoming_event',
+                'priority' => 'normal',
+                'data' => json_encode([
+                    'event_id' => $event->id,
+                    'event_title' => $event->event_title,
+                    'location' => $event->location,
+                    'starts_at' => $event->event_date->toDateString(),
+                    'start_time' => $event->start_time,
+                    'end_time' => $event->end_time,
+                    'category' => $category?->id,
+                    'category_name' => $category?->category_name,
+                ]),
+                'is_read' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ])->toArray();
+
+            AlumniNotification::insert($notifications);
+        } catch (Throwable $exception) {
+            Log::error('Failed to send new event notifications.', [
+                'event_id' => $event->id,
+                'exception' => $exception->getMessage(),
+            ]);
+        }
     }
 }

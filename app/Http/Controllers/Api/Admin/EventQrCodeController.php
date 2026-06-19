@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class EventQrCodeController extends Controller
 {
@@ -44,8 +43,9 @@ class EventQrCodeController extends Controller
                                         new OA\Property(property: 'id', type: 'integer', example: 1),
                                         new OA\Property(property: 'event_id', type: 'integer', example: 1),
                                         new OA\Property(property: 'qr_token', type: 'string', example: '550e8400-e29b-41d4-a716-446655440000'),
-                                        new OA\Property(property: 'qr_code_image', type: 'string', example: 'qrcodes/550e8400.svg'),
-                                        new OA\Property(property: 'qr_code_url', type: 'string', example: 'http://localhost:8000/storage/qrcodes/550e8400.svg'),
+                                        new OA\Property(property: 'qr_payload', type: 'string', example: '550e8400-e29b-41d4-a716-446655440000'),
+                                        new OA\Property(property: 'qr_code_image', type: 'string', nullable: true, example: null),
+                                        new OA\Property(property: 'qr_code_url', type: 'string', nullable: true, example: null),
                                         new OA\Property(property: 'timeout_minutes', type: 'integer', example: 60),
                                         new OA\Property(property: 'is_active', type: 'boolean', example: true),
                                         new OA\Property(property: 'created_at', type: 'string', example: '2026-05-25T13:56:00.000000Z'),
@@ -86,20 +86,7 @@ class EventQrCodeController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'qr_code' => [
-                    'id' => $qrCode->id,
-                    'event_id' => $qrCode->event_id,
-                    'qr_token' => $qrCode->qr_token,
-                    'qr_code_image' => $qrCode->qr_code_image,
-                    'qr_code_url' => $qrCode->qr_code_url,
-                    'valid_from' => $qrCode->valid_from,
-                    'timeout_minutes' => $qrCode->timeout_minutes,
-                    'is_active' => $qrCode->is_active,
-                    'created_at' => $qrCode->created_at,
-                    'expired_at' => $qrCode->expired_at,
-                    'is_valid_now' => $qrCode->is_valid_now,
-                    'is_expired' => $qrCode->is_expired,
-                ],
+                'qr_code' => $this->serializeQrCode($qrCode),
             ],
         ]);
     }
@@ -122,8 +109,9 @@ class EventQrCodeController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['timeout_minutes'],
+                required: ['valid_from', 'timeout_minutes'],
                 properties: [
+                    new OA\Property(property: 'valid_from', type: 'string', example: '2026-06-02 03:00:00'),
                     new OA\Property(property: 'timeout_minutes', type: 'integer', example: 60),
                 ]
             )
@@ -143,8 +131,9 @@ class EventQrCodeController extends Controller
                                         new OA\Property(property: 'id', type: 'integer', example: 1),
                                         new OA\Property(property: 'event_id', type: 'integer', example: 1),
                                         new OA\Property(property: 'qr_token', type: 'string', example: '550e8400-e29b-41d4-a716-446655440000'),
-                                        new OA\Property(property: 'qr_code_image', type: 'string', example: 'qrcodes/550e8400.svg'),
-                                        new OA\Property(property: 'qr_code_url', type: 'string', example: 'http://localhost:8000/storage/qrcodes/550e8400.svg'),
+                                        new OA\Property(property: 'qr_payload', type: 'string', example: '550e8400-e29b-41d4-a716-446655440000'),
+                                        new OA\Property(property: 'qr_code_image', type: 'string', nullable: true, example: null),
+                                        new OA\Property(property: 'qr_code_url', type: 'string', nullable: true, example: null),
                                         new OA\Property(property: 'valid_from', type: 'string', example: '2026-05-25T13:56:00.000000Z'),
                                         new OA\Property(property: 'timeout_minutes', type: 'integer', example: 60),
                                         new OA\Property(property: 'is_active', type: 'boolean', example: true),
@@ -207,23 +196,11 @@ class EventQrCodeController extends Controller
 
         $qrToken = Str::uuid()->toString();
 
-        // QR code content: just the token (not full URL)
-        // Frontend will send this token directly to /api/presensi/scan
-        $qrContent = $qrToken;
-
-        $qrImage = QrCode::format('svg')
-            ->size(400)
-            ->generate($qrContent);
-
-        $imagePath = "qrcodes/{$qrToken}.svg";
-
-        Storage::disk('public')->put($imagePath, $qrImage);
-
         $qrCode = EventQrCode::create([
             'event_id' => $event->id,
             'qr_token' => $qrToken,
-            'qr_code_image' => $imagePath,
-            'qr_code_url' => asset('storage/' . $imagePath),
+            'qr_code_image' => null,
+            'qr_code_url' => null,
             'valid_from' => $validFrom,
             'timeout_minutes' => $validated['timeout_minutes'],
             'is_active' => true,
@@ -236,20 +213,7 @@ class EventQrCodeController extends Controller
             'success' => true,
             'message' => 'QR code generated successfully',
             'data' => [
-                'qr_code' => [
-                    'id' => $qrCode->id,
-                    'event_id' => $qrCode->event_id,
-                    'qr_token' => $qrCode->qr_token,
-                    'qr_code_image' => $qrCode->qr_code_image,
-                    'qr_code_url' => $qrCode->qr_code_url,
-                    'valid_from' => $qrCode->valid_from,
-                    'timeout_minutes' => $qrCode->timeout_minutes,
-                    'is_active' => $qrCode->is_active,
-                    'created_at' => $qrCode->created_at,
-                    'expired_at' => $qrCode->expired_at,
-                    'is_valid_now' => $qrCode->is_valid_now,
-                    'is_expired' => $qrCode->is_expired,
-                ],
+                'qr_code' => $this->serializeQrCode($qrCode),
             ],
         ], 201);
     }
@@ -296,11 +260,21 @@ class EventQrCodeController extends Controller
 
         $qrCode = $event->activeQrCode;
 
-        if (! $qrCode || ! $qrCode->qr_code_image) {
+        if (! $qrCode) {
             return response()->json([
                 'success' => false,
-                'message' => 'QR code image not found',
+                'message' => 'QR code not found',
             ], 404);
+        }
+
+        if (! $qrCode->qr_code_image) {
+            return response()->json([
+                'success' => false,
+                'message' => 'QR image is generated by frontend. Use data.qr_code.qr_payload from /api/admin/events/{id}/qr.',
+                'data' => [
+                    'qr_code' => $this->serializeQrCode($qrCode),
+                ],
+            ], 410);
         }
 
         if (! Storage::disk('public')->exists($qrCode->qr_code_image)) {
@@ -315,5 +289,24 @@ class EventQrCodeController extends Controller
         return response($svgContent, 200)
             ->header('Content-Type', 'image/svg+xml')
             ->header('Cache-Control', 'public, max-age=86400');
+    }
+
+    private function serializeQrCode(EventQrCode $qrCode): array
+    {
+        return [
+            'id' => $qrCode->id,
+            'event_id' => $qrCode->event_id,
+            'qr_token' => $qrCode->qr_token,
+            'qr_payload' => $qrCode->qr_payload,
+            'qr_code_image' => $qrCode->qr_code_image,
+            'qr_code_url' => $qrCode->qr_code_url,
+            'valid_from' => $qrCode->valid_from,
+            'timeout_minutes' => $qrCode->timeout_minutes,
+            'is_active' => $qrCode->is_active,
+            'created_at' => $qrCode->created_at,
+            'expired_at' => $qrCode->expired_at,
+            'is_valid_now' => $qrCode->is_valid_now,
+            'is_expired' => $qrCode->is_expired,
+        ];
     }
 }

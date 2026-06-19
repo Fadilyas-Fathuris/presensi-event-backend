@@ -12,6 +12,8 @@ use OpenApi\Attributes as OA;
 
 class UserManagementController extends Controller
 {
+    private const ADMIN_PROTECTED_MESSAGE = 'User dengan role admin tidak dapat diubah atau dihapus';
+
     #[OA\Get(
         path: '/api/user-management',
         operationId: 'getAllUsersManagement',
@@ -58,6 +60,7 @@ class UserManagementController extends Controller
     public function index(): JsonResponse
     {
         $users = User::query()
+            ->where('role', '!=', 'admin')
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(fn (User $user) => $this->formatUser($user));
@@ -148,10 +151,20 @@ class UserManagementController extends Controller
             ], 404);
         }
 
+        if ($user->role === 'admin') {
+            return $this->adminProtectedResponse();
+        }
+
+        if ($request->input('role') === 'admin') {
+            return response()->json([
+                'message' => 'Role user tidak dapat diubah menjadi admin melalui endpoint kelola user',
+            ], 403);
+        }
+
         $validated = $request->validate([
             'name'   => ['required', 'string', 'max:255'],
             'email'  => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'role'   => ['required', 'string', Rule::in(['admin', 'alumni', 'user'])],
+            'role'   => ['required', 'string', Rule::in(['alumni', 'user'])],
             'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
         ]);
 
@@ -230,6 +243,10 @@ class UserManagementController extends Controller
             ], 404);
         }
 
+        if ($user->role === 'admin') {
+            return $this->adminProtectedResponse();
+        }
+
         $user->tokens()->delete();
         $user->delete();
 
@@ -262,5 +279,12 @@ class UserManagementController extends Controller
             $parts[0],
             $parts[1] ?? null,
         ];
+    }
+
+    private function adminProtectedResponse(): JsonResponse
+    {
+        return response()->json([
+            'message' => self::ADMIN_PROTECTED_MESSAGE,
+        ], 403);
     }
 }

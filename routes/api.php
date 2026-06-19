@@ -31,6 +31,7 @@ Route::prefix('auth')->group(function () {
 // ── User Management (Frontend compatibility) ─────────────────────────────────
 Route::get('/users',         [UserManagementController::class, 'index']);
 Route::put('/users/{id}',    [UserManagementController::class, 'update']);
+Route::patch('/users/{id}',  [UserManagementController::class, 'update']);
 Route::delete('/users/{id}', [UserManagementController::class, 'destroy']);
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
@@ -52,6 +53,7 @@ Route::prefix('admin')
         Route::get('/events/{id}',                 [EventController::class, 'show']);
         Route::post('/events',                     [EventController::class, 'store']);
         Route::put('/events/{id}',                 [EventController::class, 'update']);
+        Route::post('/events/{id}',                [EventController::class, 'update']);
         Route::delete('/events/{id}',              [EventController::class, 'destroy']);
         Route::patch('/events/{id}/toggle',        [EventController::class, 'toggle']);
         Route::get('/events/{id}/attendances',     [EventController::class, 'attendances']);
