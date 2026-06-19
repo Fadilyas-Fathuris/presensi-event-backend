@@ -33,7 +33,16 @@ class Event extends Model
         'quota'      => 'integer',
     ];
 
-    protected $appends = ['qr_payload', 'qr_code_url', 'poster_url'];
+    protected $appends = [
+        'qr_payload',
+        'qr_code_url',
+        'poster_url',
+        'quota_used',
+        'remaining_quota',
+        'is_quota_full',
+        'quota_status',
+        'quota_message',
+    ];
 
     public function getQrPayloadAttribute(): ?string
     {
@@ -72,6 +81,39 @@ class Event extends Model
         return $this->hasMany(EventRegistration::class, 'event_id');
     }
 
+    public function getQuotaUsedAttribute(): int
+    {
+        return $this->registeredCount();
+    }
+
+    public function getRemainingQuotaAttribute(): ?int
+    {
+        return $this->remainingQuota();
+    }
+
+    public function getIsQuotaFullAttribute(): bool
+    {
+        return ! $this->isQuotaAvailable();
+    }
+
+    public function getQuotaStatusAttribute(): string
+    {
+        if (is_null($this->quota)) {
+            return 'unlimited';
+        }
+
+        return $this->isQuotaAvailable() ? 'available' : 'full';
+    }
+
+    public function getQuotaMessageAttribute(): ?string
+    {
+        if (is_null($this->quota) || $this->isQuotaAvailable()) {
+            return null;
+        }
+
+        return 'Kuota penuh, segera hubungi penyelenggara';
+    }
+
     public function isWithinAttendanceWindow(): bool
     {
         $now   = now();
@@ -88,7 +130,7 @@ class Event extends Model
         // Jika quota null = tidak ada batas
         if (is_null($this->quota)) return true;
 
-        $totalRegistered = $this->registrations()->count();
+        $totalRegistered = $this->registeredCount();
         return $totalRegistered < $this->quota;
     }
 
@@ -96,8 +138,21 @@ class Event extends Model
     public function remainingQuota(): ?int
     {
         if (is_null($this->quota)) return null;
-        $totalRegistered = $this->registrations()->count();
+        $totalRegistered = $this->registeredCount();
         return max(0, $this->quota - $totalRegistered);
+    }
+
+    private function registeredCount(): int
+    {
+        if (array_key_exists('registrations_count', $this->attributes)) {
+            return (int) $this->attributes['registrations_count'];
+        }
+
+        if ($this->relationLoaded('registrations')) {
+            return $this->registrations->count();
+        }
+
+        return $this->registrations()->count();
     }
 
     public function qrCodes(): HasMany

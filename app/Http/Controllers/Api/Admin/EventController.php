@@ -110,7 +110,8 @@ class EventController extends Controller
             'per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
-        $query = Event::with(['category', 'createdBy']);
+        $query = Event::with(['category', 'createdBy'])
+            ->withCount(['registrations', 'presensis']);
 
         if (! empty($filters['search'])) {
             $search = $filters['search'];
@@ -172,7 +173,9 @@ class EventController extends Controller
     )]
     public function show(int $id): JsonResponse
     {
-        $event = Event::with(['category', 'createdBy'])->find($id);
+        $event = Event::with(['category', 'createdBy'])
+            ->withCount(['registrations', 'presensis'])
+            ->find($id);
 
         if (! $event) {
             return response()->json(['success' => false, 'message' => 'Event not found'], 404);
@@ -183,6 +186,7 @@ class EventController extends Controller
             'data' => [
                 'event' => $event,
                 'attendance_count' => $event->presensis()->count(),
+                'summary' => $this->eventSummary($event),
             ],
         ]);
     }
@@ -329,7 +333,7 @@ class EventController extends Controller
     )]
     public function update(Request $request, int $id): JsonResponse
     {
-        $event = Event::find($id);
+        $event = Event::withCount(['registrations', 'presensis'])->find($id);
 
         if (! $event) {
             return response()->json(['success' => false, 'message' => 'Event not found'], 404);
@@ -370,7 +374,7 @@ class EventController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Event updated successfully',
-            'data' => ['event' => $event->fresh()->load(['category', 'createdBy'])],
+            'data' => ['event' => $event->fresh()->load(['category', 'createdBy'])->loadCount(['registrations', 'presensis'])],
         ]);
     }
 
@@ -519,15 +523,21 @@ class EventController extends Controller
 
         $perPage = $filters['per_page'] ?? 10;
         $attendances = $event->presensis()
-            ->with('user:id,first_name,last_name,email,graduation_year')
+            ->with('user:id,first_name,last_name,email,phone,graduation_year')
             ->orderBy('scanned_at', 'asc')
             ->paginate($perPage);
+
+        $registrationByUserId = $event->registrations()
+            ->whereIn('user_id', collect($attendances->items())->pluck('user_id'))
+            ->get(['id', 'event_id', 'user_id', 'status', 'registered_at'])
+            ->keyBy('user_id');
 
         return response()->json([
             'success' => true,
             'data' => [
-                'event' => $event->only(['id', 'event_title', 'event_date', 'location']),
-                'attendances' => $this->formatPaginatorUsers($attendances),
+                'event' => $this->formatEventMeta($event),
+                'summary' => $this->eventSummary($event),
+                'attendances' => $this->formatPaginatorUsers($attendances, $registrationByUserId),
                 'total' => $attendances->total(),
                 'current_page' => $attendances->currentPage(),
                 'last_page' => $attendances->lastPage(),
@@ -616,7 +626,7 @@ class EventController extends Controller
             'per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
-        $event = Event::find($id);
+        $event = Event::withCount(['registrations', 'presensis'])->find($id);
 
         if (! $event) {
             return response()->json(['success' => false, 'message' => 'Event not found'], 404);
@@ -630,19 +640,17 @@ class EventController extends Controller
 
         $perPage = $filters['per_page'] ?? 10;
         $registrations = $query->orderBy('registered_at', 'asc')->paginate($perPage);
+        $presensiByUserId = $event->presensis()
+            ->whereIn('user_id', collect($registrations->items())->pluck('user_id'))
+            ->get(['id', 'event_id', 'user_id', 'scanned_at'])
+            ->keyBy('user_id');
 
         return response()->json([
             'success' => true,
             'data' => [
-                'event' => $event->only(['id', 'event_title', 'event_date', 'location', 'quota']),
-                'summary' => [
-                    'total_registered' => $event->registrations()->count(),
-                    'total_attended' => $event->registrations()->where('status', 'attended')->count(),
-                    'total_absent' => $event->registrations()->where('status', 'absent')->count(),
-                    'quota' => $event->quota,
-                    'remaining_quota' => $event->remainingQuota(),
-                ],
-                'registrations' => $this->formatPaginatorUsers($registrations),
+                'event' => $this->formatEventMeta($event),
+                'summary' => $this->eventSummary($event),
+                'registrations' => $this->formatPaginatorUsers($registrations, $presensiByUserId),
                 'total' => $registrations->total(),
                 'current_page' => $registrations->currentPage(),
                 'last_page' => $registrations->lastPage(),
@@ -650,14 +658,32 @@ class EventController extends Controller
         ]);
     }
 
-    private function formatPaginatorUsers(LengthAwarePaginator $paginator): array
+    private function formatPaginatorUsers(LengthAwarePaginator $paginator, $attendanceByUserId = null): array
     {
         return collect($paginator->items())
-            ->map(function ($item) {
+            ->map(function ($item) use ($attendanceByUserId) {
                 $payload = $item->toArray();
                 $payload['user'] = $item->relationLoaded('user') && $item->user
                     ? $this->formatEventUser($item->user)
                     : null;
+                $attendance = $attendanceByUserId?->get($item->user_id);
+
+                if ($attendance) {
+                    $payload['attendance'] = [
+                        'id' => $attendance->id,
+                        'status' => $item->status === 'attended' || isset($attendance->scanned_at) ? 'attended' : $attendance->status,
+                        'registered_at' => $attendance->registered_at ?? $item->registered_at ?? null,
+                        'scanned_at' => $attendance->scanned_at ?? null,
+                    ];
+                    $payload['scanned_at'] = $attendance->scanned_at ?? $payload['scanned_at'] ?? null;
+                } else {
+                    $payload['attendance'] = [
+                        'id' => null,
+                        'status' => $item->status ?? 'registered',
+                        'registered_at' => $item->registered_at ?? null,
+                        'scanned_at' => $payload['scanned_at'] ?? null,
+                    ];
+                }
 
                 return $payload;
             })
@@ -676,6 +702,45 @@ class EventController extends Controller
             'phone' => $user->phone,
             'angkatan' => $user->graduation_year,
             'graduation_year' => $user->graduation_year,
+        ];
+    }
+
+    private function formatEventMeta(Event $event): array
+    {
+        return [
+            'id' => $event->id,
+            'event_title' => $event->event_title,
+            'event_date' => $event->event_date,
+            'start_time' => $event->start_time,
+            'end_time' => $event->end_time,
+            'location' => $event->location,
+            'status_event' => $event->status_event,
+            'quota' => $event->quota,
+            'quota_used' => $event->quota_used,
+            'remaining_quota' => $event->remaining_quota,
+            'is_quota_full' => $event->is_quota_full,
+            'quota_status' => $event->quota_status,
+            'quota_message' => $event->quota_message,
+        ];
+    }
+
+    private function eventSummary(Event $event): array
+    {
+        $totalRegistered = $event->registrations_count ?? $event->registrations()->count();
+        $totalAttended = $event->presensis_count ?? $event->presensis()->count();
+        $totalAbsent = $event->registrations()->where('status', 'absent')->count();
+
+        return [
+            'total_registered' => $totalRegistered,
+            'total_attended' => $totalAttended,
+            'total_absent' => $totalAbsent,
+            'total_not_attended' => max(0, $totalRegistered - $totalAttended),
+            'quota' => $event->quota,
+            'quota_used' => $event->quota_used,
+            'remaining_quota' => $event->remaining_quota,
+            'is_quota_full' => $event->is_quota_full,
+            'quota_status' => $event->quota_status,
+            'quota_message' => $event->quota_message,
         ];
     }
 

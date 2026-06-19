@@ -9,6 +9,7 @@ use App\Models\Presensi;
 use App\Models\EventRegistration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
@@ -149,48 +150,53 @@ class PresensiController extends Controller
             ], 400);
         }
 
-        // 4. Check if user is registered for this event
-        $isRegistered = EventRegistration::where('event_id', $event->id)
-            ->where('user_id', $request->user()->id)
-            ->exists();
+        $userId = $request->user()->id;
 
-        if (!$isRegistered) {
-            Log::warning('User not registered for event', [
-                'user_id' => $request->user()->id,
-                'event_id' => $event->id,
+        $presensi = DB::transaction(function () use ($event, $userId) {
+            // 4. Check if user is registered for this event
+            $registration = EventRegistration::where('event_id', $event->id)
+                ->where('user_id', $userId)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $registration) {
+                Log::warning('User not registered for event', [
+                    'user_id' => $userId,
+                    'event_id' => $event->id,
+                ]);
+
+                abort(response()->json([
+                    'success' => false,
+                    'message' => 'QR Code tidak dikenali',
+                ], 403));
+            }
+
+            // 5. Check double scan
+            $alreadyScanned = Presensi::where('event_id', $event->id)
+                ->where('user_id', $userId)
+                ->exists();
+
+            if ($alreadyScanned) {
+                abort(response()->json([
+                    'success' => false,
+                    'message' => 'Kamu sudah melakukan presensi untuk event ini',
+                ], 400));
+            }
+
+            // 6. Record attendance
+            $presensi = Presensi::create([
+                'event_id'   => $event->id,
+                'user_id'    => $userId,
+                'scanned_at' => now(),
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'QR Code tidak dikenali',
-            ], 403);
-        }
+            // 7. Update registration status to attended
+            $registration->update(['status' => 'attended']);
 
-        // 5. Check double scan
-        $alreadyScanned = Presensi::where('event_id', $event->id)
-            ->where('user_id', $request->user()->id)
-            ->exists();
+            return $presensi;
+        });
 
-        if ($alreadyScanned) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Kamu sudah melakukan presensi untuk event ini',
-            ], 400);
-        }
-
-        // 6. Record attendance
-        $presensi = Presensi::create([
-            'event_id'   => $event->id,
-            'user_id'    => $request->user()->id,
-            'scanned_at' => now(),
-        ]);
-
-        // 7. Update registration status to attended
-        EventRegistration::where('event_id', $event->id)
-            ->where('user_id', $request->user()->id)
-            ->update(['status' => 'attended']);
-
-        $presensi->load('event:id,event_title,location,event_date');
+        $presensi->load('event:id,event_title,location,event_date', 'user:id,first_name,last_name,email,phone,graduation_year');
 
         return response()->json([
             'success' => true,

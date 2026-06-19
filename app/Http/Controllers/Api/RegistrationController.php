@@ -7,6 +7,8 @@ use App\Models\Event;
 use App\Models\EventRegistration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Database\QueryException;
 use OpenApi\Attributes as OA;
 
 class RegistrationController extends Controller
@@ -47,6 +49,7 @@ class RegistrationController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Event::with('category')
+            ->withCount('registrations')
             ->where('status_event', 'active')
             ->where('event_date', '>=', today());
 
@@ -68,7 +71,6 @@ class RegistrationController extends Controller
         // Tambahkan info kuota & status registrasi untuk alumni ini
         $userId      = $request->user()->id;
         $eventItems  = collect($events->items())->map(function ($event) use ($userId) {
-            $event->remaining_quota  = $event->remainingQuota();
             $event->is_registered    = $event->registrations()
                 ->where('user_id', $userId)->exists();
             return $event;
@@ -118,7 +120,7 @@ class RegistrationController extends Controller
     )]
     public function show(Request $request, int $id): JsonResponse
     {
-        $event = Event::with('category')->find($id);
+        $event = Event::with('category')->withCount('registrations')->find($id);
 
         if (! $event) {
             return response()->json(['success' => false, 'message' => 'Event not found'], 404);
@@ -172,62 +174,81 @@ class RegistrationController extends Controller
     )]
     public function register(Request $request, int $id): JsonResponse
     {
-        $event = Event::find($id);
+        try {
+            $registration = DB::transaction(function () use ($request, $id) {
+                $event = Event::query()->lockForUpdate()->find($id);
 
-        if (! $event) {
-            return response()->json(['success' => false, 'message' => 'Event not found'], 404);
-        }
+                if (! $event) {
+                    abort(response()->json(['success' => false, 'message' => 'Event not found'], 404));
+                }
 
-        // Cek event masih aktif
-        if ($event->status_event !== 'active') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Event ini sudah tidak aktif',
-            ], 400);
-        }
+                // Cek event masih aktif
+                if ($event->status_event !== 'active') {
+                    abort(response()->json([
+                        'success' => false,
+                        'message' => 'Event ini sudah tidak aktif',
+                    ], 400));
+                }
 
-        // Cek event belum lewat
-        if ($event->event_date->isPast() && ! $event->event_date->isToday()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Pendaftaran event ini sudah ditutup',
-            ], 400);
-        }
+                // Cek event belum lewat
+                if ($event->event_date->isPast() && ! $event->event_date->isToday()) {
+                    abort(response()->json([
+                        'success' => false,
+                        'message' => 'Pendaftaran event ini sudah ditutup',
+                    ], 400));
+                }
 
-        // Cek sudah pernah daftar
-        $alreadyRegistered = EventRegistration::where('event_id', $id)
-            ->where('user_id', $request->user()->id)
-            ->exists();
+                // Cek sudah pernah daftar
+                $alreadyRegistered = EventRegistration::where('event_id', $id)
+                    ->where('user_id', $request->user()->id)
+                    ->exists();
 
-        if ($alreadyRegistered) {
+                if ($alreadyRegistered) {
+                    abort(response()->json([
+                        'success' => false,
+                        'message' => 'Kamu sudah terdaftar di event ini',
+                    ], 400));
+                }
+
+                // Cek kuota setelah row event dikunci agar tidak over quota saat daftar bersamaan.
+                if (! $event->isQuotaAvailable()) {
+                    abort(response()->json([
+                        'success' => false,
+                        'message' => 'Kuota penuh, segera hubungi penyelenggara',
+                    ], 400));
+                }
+
+                return EventRegistration::create([
+                    'event_id'      => $id,
+                    'user_id'       => $request->user()->id,
+                    'status'        => 'registered',
+                    'registered_at' => now(),
+                ]);
+            });
+        } catch (QueryException $exception) {
             return response()->json([
                 'success' => false,
                 'message' => 'Kamu sudah terdaftar di event ini',
             ], 400);
         }
 
-        // Cek kuota
-        if (! $event->isQuotaAvailable()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Maaf, kuota event ini sudah penuh',
-            ], 400);
-        }
-
-        // Daftarkan alumni
-        $registration = EventRegistration::create([
-            'event_id'      => $id,
-            'user_id'       => $request->user()->id,
-            'status'        => 'registered',
-            'registered_at' => now(),
-        ]);
-
-        $registration->load('event:id,event_title,event_date,location');
+        $registration->load('event.category');
+        $registration->event->loadCount('registrations');
 
         return response()->json([
             'success' => true,
-            'message' => 'Pendaftaran berhasil! Sampai jumpa di event 🎉',
-            'data'    => ['registration' => $registration],
+            'message' => 'Pendaftaran berhasil! Sampai jumpa di event',
+            'data'    => [
+                'registration' => $registration,
+                'quota' => [
+                    'quota' => $registration->event->quota,
+                    'quota_used' => $registration->event->quota_used,
+                    'remaining_quota' => $registration->event->remaining_quota,
+                    'is_quota_full' => $registration->event->is_quota_full,
+                    'quota_status' => $registration->event->quota_status,
+                    'quota_message' => $registration->event->quota_message,
+                ],
+            ],
         ], 201);
     }
 

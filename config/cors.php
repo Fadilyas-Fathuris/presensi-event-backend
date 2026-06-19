@@ -15,7 +15,8 @@ return [
     'allowed_origins' => [
         'http://localhost:3000',
         'http://127.0.0.1:3000',
-        'http://192.168.0.102:3000'
+        'http://192.168.0.102:3000',
+        'http://192.168.1.97:3000'
     ],
 
     'allowed_origins_patterns' => [],

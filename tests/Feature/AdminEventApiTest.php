@@ -123,13 +123,49 @@ class AdminEventApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.registrations.0.user.name', 'Ahmad Fauzi')
-            ->assertJsonPath('data.registrations.0.user.angkatan', '2020');
+            ->assertJsonPath('data.registrations.0.user.angkatan', '2020')
+            ->assertJsonPath('data.registrations.0.attendance.status', 'attended')
+            ->assertJsonPath('data.summary.total_registered', 1)
+            ->assertJsonPath('data.summary.total_attended', 1)
+            ->assertJsonPath('data.summary.remaining_quota', 99);
 
         $this->getJson("/api/admin/events/{$event->id}/attendances")
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.attendances.0.user.name', 'Ahmad Fauzi')
-            ->assertJsonPath('data.attendances.0.user.angkatan', '2020');
+            ->assertJsonPath('data.attendances.0.user.angkatan', '2020')
+            ->assertJsonPath('data.attendances.0.attendance.status', 'attended')
+            ->assertJsonPath('data.summary.total_attended', 1);
+    }
+
+    public function test_admin_event_list_exposes_realtime_quota_status(): void
+    {
+        $admin = $this->createAdmin();
+        $event = $this->createEvent($admin, quota: 1);
+        $alumni = User::query()->create([
+            'first_name' => 'Siti',
+            'gender' => 'Perempuan',
+            'email' => 'siti@example.com',
+            'password' => 'password',
+            'role' => 'alumni',
+        ]);
+
+        EventRegistration::query()->create([
+            'event_id' => $event->id,
+            'user_id' => $alumni->id,
+            'status' => 'registered',
+            'registered_at' => now(),
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/admin/events')
+            ->assertOk()
+            ->assertJsonPath('data.events.0.quota', 1)
+            ->assertJsonPath('data.events.0.quota_used', 1)
+            ->assertJsonPath('data.events.0.remaining_quota', 0)
+            ->assertJsonPath('data.events.0.is_quota_full', true)
+            ->assertJsonPath('data.events.0.quota_message', 'Kuota penuh, segera hubungi penyelenggara');
     }
 
     private function createAdmin(): User
@@ -143,7 +179,7 @@ class AdminEventApiTest extends TestCase
         ]);
     }
 
-    private function createEvent(User $admin): Event
+    private function createEvent(User $admin, int $quota = 100): Event
     {
         $category = Category::query()->create([
             'category_name' => 'Reuni',
@@ -161,7 +197,7 @@ class AdminEventApiTest extends TestCase
             'end_time' => '10:00',
             'qr_token' => Str::uuid()->toString(),
             'status_event' => 'active',
-            'quota' => 100,
+            'quota' => $quota,
         ]);
     }
 }

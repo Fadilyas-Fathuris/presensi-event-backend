@@ -80,6 +80,33 @@ class QrCodeFlowTest extends TestCase
             'event_id' => $event->id,
             'user_id' => $alumni->id,
         ]);
+        $this->assertDatabaseHas('event_registrations', [
+            'event_id' => $event->id,
+            'user_id' => $alumni->id,
+            'status' => 'attended',
+        ]);
+    }
+
+    public function test_registration_is_rejected_when_quota_is_full(): void
+    {
+        $admin = $this->createUser('admin@example.com', 'admin');
+        $firstAlumni = $this->createUser('first@example.com', 'alumni');
+        $secondAlumni = $this->createUser('second@example.com', 'alumni');
+        $event = $this->createEvent($admin, quota: 1);
+
+        EventRegistration::query()->create([
+            'event_id' => $event->id,
+            'user_id' => $firstAlumni->id,
+            'status' => 'registered',
+            'registered_at' => now(),
+        ]);
+
+        Sanctum::actingAs($secondAlumni);
+
+        $this->postJson("/api/events/{$event->id}/register")
+            ->assertBadRequest()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Kuota penuh, segera hubungi penyelenggara');
     }
 
     private function createUser(string $email, string $role): User
@@ -93,7 +120,7 @@ class QrCodeFlowTest extends TestCase
         ]);
     }
 
-    private function createEvent(User $admin): Event
+    private function createEvent(User $admin, int $quota = 100): Event
     {
         $category = Category::query()->create([
             'category_name' => 'Seminar',
@@ -111,7 +138,7 @@ class QrCodeFlowTest extends TestCase
             'end_time' => '10:00',
             'qr_token' => Str::uuid()->toString(),
             'status_event' => 'active',
-            'quota' => 100,
+            'quota' => $quota,
         ]);
     }
 }
