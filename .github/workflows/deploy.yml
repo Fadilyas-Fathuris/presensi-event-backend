@@ -1,0 +1,69 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${{ secrets.VPS_PORT }}" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sync files to VPS
+        run: |
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT }}" \
+            --exclude=".git" \
+            --exclude=".env" \
+            --exclude="vendor" \
+            --exclude="node_modules" \
+            --exclude="storage/app" \
+            --exclude="storage/framework/cache" \
+            --exclude="storage/framework/sessions" \
+            --exclude="storage/framework/views" \
+            --exclude="storage/logs" \
+            ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_PATH }}
+
+      - name: Run deployment commands
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${{ secrets.VPS_PORT }}" "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" << 'EOF'
+            set -e
+
+            cd /var/www/presensi-event-backend
+
+            php artisan down || true
+
+            composer install --no-dev --optimize-autoloader --no-interaction
+
+            npm ci
+            npm run build
+
+            php artisan migrate --force
+
+            php artisan optimize:clear
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan event:cache
+
+            php artisan storage:link || true
+            php artisan queue:restart || true
+
+            chown -R www-data:www-data storage bootstrap/cache public/build
+            chmod -R 775 storage bootstrap/cache
+
+            php artisan up
+
+            systemctl reload nginx
+          EOF
