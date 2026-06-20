@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,6 +36,10 @@ class UserManagementController extends Controller
                                     new OA\Property(property: 'id', type: 'integer', example: 1),
                                     new OA\Property(property: 'name', type: 'string', example: 'Ahmad Fauzi'),
                                     new OA\Property(property: 'email', type: 'string', example: 'ahmad@example.com'),
+                                    new OA\Property(property: 'phone', type: 'string', nullable: true, example: '6281234567890'),
+                                    new OA\Property(property: 'gender', type: 'string', nullable: true, example: 'Laki-laki'),
+                                    new OA\Property(property: 'graduation_year', type: 'string', nullable: true, example: '2020'),
+                                    new OA\Property(property: 'birth_date', type: 'string', nullable: true, example: '2000-01-01'),
                                     new OA\Property(property: 'role', type: 'string', example: 'alumni'),
                                     new OA\Property(property: 'status', type: 'string', example: 'active'),
                                     new OA\Property(property: 'created_at', type: 'string', example: '2026-01-01T00:00:00.000000Z'),
@@ -93,6 +98,10 @@ class UserManagementController extends Controller
                 properties: [
                     new OA\Property(property: 'name', type: 'string', example: 'Ahmad Fauzi Updated'),
                     new OA\Property(property: 'email', type: 'string', format: 'email', example: 'ahmad.new@example.com'),
+                    new OA\Property(property: 'phone', type: 'string', nullable: true, example: '6281234567890'),
+                    new OA\Property(property: 'gender', type: 'string', nullable: true, enum: ['Laki-laki', 'Perempuan'], example: 'Laki-laki'),
+                    new OA\Property(property: 'graduation_year', type: 'string', nullable: true, example: '2020'),
+                    new OA\Property(property: 'birth_date', type: 'string', nullable: true, format: 'date', example: '2000-01-01'),
                     new OA\Property(property: 'role', type: 'string', enum: ['admin', 'alumni', 'user'], example: 'alumni'),
                     new OA\Property(property: 'status', type: 'string', enum: ['active', 'inactive'], example: 'active'),
                 ]
@@ -112,6 +121,10 @@ class UserManagementController extends Controller
                                 new OA\Property(property: 'id', type: 'integer', example: 1),
                                 new OA\Property(property: 'name', type: 'string', example: 'Ahmad Fauzi Updated'),
                                 new OA\Property(property: 'email', type: 'string', example: 'ahmad.new@example.com'),
+                                new OA\Property(property: 'phone', type: 'string', nullable: true, example: '6281234567890'),
+                                new OA\Property(property: 'gender', type: 'string', nullable: true, example: 'Laki-laki'),
+                                new OA\Property(property: 'graduation_year', type: 'string', nullable: true, example: '2020'),
+                                new OA\Property(property: 'birth_date', type: 'string', nullable: true, example: '2000-01-01'),
                                 new OA\Property(property: 'role', type: 'string', example: 'alumni'),
                                 new OA\Property(property: 'status', type: 'string', example: 'active'),
                                 new OA\Property(property: 'created_at', type: 'string', example: '2026-01-01T00:00:00.000000Z'),
@@ -162,9 +175,13 @@ class UserManagementController extends Controller
         }
 
         $validated = $request->validate([
-            'name'   => ['required', 'string', 'max:255'],
-            'email'  => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'role'   => ['required', 'string', Rule::in(['alumni', 'user'])],
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'gender' => ['nullable', Rule::in(['Laki-laki', 'Perempuan'])],
+            'graduation_year' => ['nullable', 'string', 'max:10'],
+            'birth_date' => ['nullable', 'date', 'before_or_equal:today'],
+            'role' => ['required', 'string', Rule::in(['alumni', 'user'])],
             'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
         ]);
 
@@ -172,10 +189,20 @@ class UserManagementController extends Controller
 
         $payload = [
             'first_name' => $firstName,
-            'last_name'  => $lastName,
-            'email'      => $validated['email'],
-            'role'       => $validated['role'] === 'user' ? 'alumni' : $validated['role'],
+            'last_name' => $lastName,
+            'email' => $validated['email'],
+            'role' => $validated['role'] === 'user' ? 'alumni' : $validated['role'],
         ];
+
+        if (array_key_exists('phone', $validated) && $phoneColumn = $this->resolvePhoneColumn()) {
+            $payload[$phoneColumn] = $validated['phone'];
+        }
+
+        foreach (['gender', 'graduation_year', 'birth_date'] as $field) {
+            if (array_key_exists($field, $validated) && Schema::hasColumn('users', $field)) {
+                $payload[$field] = $validated[$field];
+            }
+        }
 
         if (Schema::hasColumn('users', 'status')) {
             $payload['status'] = $validated['status'];
@@ -183,11 +210,11 @@ class UserManagementController extends Controller
 
         $user->update($payload);
 
-        \App\Models\ActivityLog::log('edit_user', 'Admin updated user details for: ' . $user->email);
+        ActivityLog::log('edit_user', 'Admin updated user details for: '.$user->email);
 
         return response()->json([
             'message' => 'User berhasil diperbarui',
-            'data'    => $this->formatUser($user->fresh(), $validated['status']),
+            'data' => $this->formatUser($user->fresh(), $validated['status']),
         ]);
     }
 
@@ -250,7 +277,7 @@ class UserManagementController extends Controller
         $user->tokens()->delete();
         $user->delete();
 
-        \App\Models\ActivityLog::log('delete_user', 'Admin deleted user: ' . $user->email);
+        ActivityLog::log('delete_user', 'Admin deleted user: '.$user->email);
 
         return response()->json([
             'message' => 'User berhasil dihapus',
@@ -262,13 +289,36 @@ class UserManagementController extends Controller
         $name = trim(sprintf('%s %s', $user->first_name, $user->last_name));
 
         return [
-            'id'         => $user->id,
-            'name'       => $name !== '' ? $name : $user->email,
-            'email'      => $user->email,
-            'role'       => $user->role,
-            'status'     => $user->status ?? $fallbackStatus ?? 'active',
+            'id' => $user->id,
+            'name' => $name !== '' ? $name : $user->email,
+            'email' => $user->email,
+            'phone' => $this->resolvePhone($user),
+            'gender' => $user->gender,
+            'graduation_year' => $user->graduation_year,
+            'birth_date' => $user->birth_date,
+            'role' => $user->role,
+            'status' => $user->status ?? $fallbackStatus ?? 'active',
             'created_at' => $user->created_at,
         ];
+    }
+
+    private function resolvePhone(User $user): ?string
+    {
+        return $user->phone
+            ?? $user->phone_number
+            ?? $user->no_telp
+            ?? null;
+    }
+
+    private function resolvePhoneColumn(): ?string
+    {
+        foreach (['phone', 'phone_number', 'no_telp'] as $column) {
+            if (Schema::hasColumn('users', $column)) {
+                return $column;
+            }
+        }
+
+        return null;
     }
 
     private function splitName(string $name): array

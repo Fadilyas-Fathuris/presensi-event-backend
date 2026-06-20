@@ -68,11 +68,17 @@ class RegistrationController extends Controller
         $perPage = $request->get('per_page', 10);
         $events  = $query->orderBy('event_date', 'asc')->paginate($perPage);
 
-        // Tambahkan info kuota & status registrasi untuk alumni ini
-        $userId      = $request->user()->id;
-        $eventItems  = collect($events->items())->map(function ($event) use ($userId) {
-            $event->is_registered    = $event->registrations()
-                ->where('user_id', $userId)->exists();
+        // Tambahkan status registrasi alumni login ke setiap event tanpa query per item.
+        $userId = $request->user()->id;
+        $registeredEventIds = EventRegistration::query()
+            ->where('user_id', $userId)
+            ->whereIn('event_id', collect($events->items())->pluck('id'))
+            ->pluck('event_id')
+            ->flip();
+
+        $eventItems = collect($events->items())->map(function ($event) use ($registeredEventIds) {
+            $event->is_registered = $registeredEventIds->has($event->id);
+
             return $event;
         });
 
@@ -129,13 +135,15 @@ class RegistrationController extends Controller
         $registration = EventRegistration::where('event_id', $id)
             ->where('user_id', $request->user()->id)
             ->first();
+        $isRegistered = ! is_null($registration);
+        $event->is_registered = $isRegistered;
 
         return response()->json([
             'success' => true,
             'data'    => [
                 'event'           => $event,
                 'remaining_quota' => $event->remainingQuota(),
-                'is_registered'   => ! is_null($registration),
+                'is_registered'   => $isRegistered,
                 'registration'    => $registration,
             ],
         ]);

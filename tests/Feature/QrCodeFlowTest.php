@@ -74,17 +74,66 @@ class QrCodeFlowTest extends TestCase
         ])
             ->assertCreated()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('message', 'Presensi berhasil dicatat');
+            ->assertJsonPath('message', 'Presensi berhasil dicatat')
+            ->assertJsonPath('data.attendance.status', 'hadir');
 
         $this->assertDatabaseHas('presensis', [
             'event_id' => $event->id,
             'user_id' => $alumni->id,
+            'status' => 'hadir',
         ]);
         $this->assertDatabaseHas('event_registrations', [
             'event_id' => $event->id,
             'user_id' => $alumni->id,
             'status' => 'attended',
         ]);
+    }
+
+    public function test_presensi_scan_errors_do_not_return_http_200(): void
+    {
+        $admin = $this->createUser('admin@example.com', 'admin');
+        $alumni = $this->createUser('alumni@example.com', 'alumni');
+        $event = $this->createEvent($admin);
+        $qrToken = Str::uuid()->toString();
+
+        EventQrCode::query()->create([
+            'event_id' => $event->id,
+            'qr_token' => $qrToken,
+            'valid_from' => now()->subMinute(),
+            'timeout_minutes' => 60,
+            'is_active' => true,
+            'created_by' => $admin->id,
+        ]);
+
+        EventRegistration::query()->create([
+            'event_id' => $event->id,
+            'user_id' => $alumni->id,
+            'status' => 'registered',
+            'registered_at' => now(),
+        ]);
+
+        Sanctum::actingAs($alumni);
+
+        $this->postJson('/api/presensi/scan', ['qr_token' => ''])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->postJson('/api/presensi/scan', ['qr_token' => 'not-a-uuid'])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->postJson('/api/presensi/scan', ['qr_token' => Str::uuid()->toString()])
+            ->assertNotFound()
+            ->assertJsonPath('success', false);
+
+        $this->postJson('/api/presensi/scan', ['qr_token' => $qrToken])
+            ->assertCreated()
+            ->assertJsonPath('success', true);
+
+        $this->postJson('/api/presensi/scan', ['qr_token' => $qrToken])
+            ->assertStatus(409)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Kamu sudah melakukan presensi untuk event ini');
     }
 
     public function test_registration_is_rejected_when_quota_is_full(): void
@@ -107,6 +156,61 @@ class QrCodeFlowTest extends TestCase
             ->assertBadRequest()
             ->assertJsonPath('success', false)
             ->assertJsonPath('message', 'Kuota penuh, segera hubungi penyelenggara');
+    }
+
+    public function test_event_list_marks_events_registered_by_authenticated_alumni(): void
+    {
+        $admin = $this->createUser('admin@example.com', 'admin');
+        $alumni = $this->createUser('alumni@example.com', 'alumni');
+        $registeredEvent = $this->createEvent($admin);
+        $unregisteredEvent = $this->createEvent($admin);
+
+        EventRegistration::query()->create([
+            'event_id' => $registeredEvent->id,
+            'user_id' => $alumni->id,
+            'status' => 'registered',
+            'registered_at' => now(),
+        ]);
+
+        Sanctum::actingAs($alumni);
+
+        $response = $this->getJson('/api/events?per_page=10')
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $eventsById = collect($response->json('data.events'))->keyBy('id');
+
+        $this->assertTrue($eventsById[$registeredEvent->id]['is_registered']);
+        $this->assertFalse($eventsById[$unregisteredEvent->id]['is_registered']);
+    }
+
+    public function test_event_detail_marks_event_registered_by_authenticated_alumni(): void
+    {
+        $admin = $this->createUser('admin@example.com', 'admin');
+        $alumni = $this->createUser('alumni@example.com', 'alumni');
+        $registeredEvent = $this->createEvent($admin);
+        $unregisteredEvent = $this->createEvent($admin);
+
+        EventRegistration::query()->create([
+            'event_id' => $registeredEvent->id,
+            'user_id' => $alumni->id,
+            'status' => 'registered',
+            'registered_at' => now(),
+        ]);
+
+        Sanctum::actingAs($alumni);
+
+        $this->getJson("/api/events/{$registeredEvent->id}")
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.event.is_registered', true)
+            ->assertJsonPath('data.is_registered', true);
+
+        $this->getJson("/api/events/{$unregisteredEvent->id}")
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.event.is_registered', false)
+            ->assertJsonPath('data.is_registered', false);
     }
 
     private function createUser(string $email, string $role): User

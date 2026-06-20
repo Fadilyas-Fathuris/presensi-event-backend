@@ -40,24 +40,31 @@ class PresensiController extends Controller
                         new OA\Property(property: 'message', type: 'string',  example: 'Presensi berhasil dicatat'),
                         new OA\Property(property: 'data', type: 'object',
                             properties: [
-                                new OA\Property(property: 'presensi', ref: '#/components/schemas/Presensi'),
+                                new OA\Property(property: 'attendance', ref: '#/components/schemas/Presensi'),
+                                new OA\Property(property: 'event', ref: '#/components/schemas/Event'),
                             ]
                         ),
                     ]
                 )
             ),
-            new OA\Response(response: 400, description: 'Scan failed (inactive, expired, out of window, or double scan)',
+            new OA\Response(response: 422, description: 'QR token is invalid, inactive, or not yet valid',
                 content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
             ),
             new OA\Response(response: 403, description: 'User not registered for event',
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(property: 'success', type: 'boolean', example: false),
-                        new OA\Property(property: 'message', type: 'string', example: 'QR Code tidak dikenali'),
+                        new OA\Property(property: 'message', type: 'string', example: 'Kamu belum terdaftar di event ini'),
                     ]
                 )
             ),
             new OA\Response(response: 404, description: 'QR token not found',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 409, description: 'Attendance already recorded',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 410, description: 'QR token expired',
                 content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
             ),
             new OA\Response(response: 401, description: 'Unauthenticated',
@@ -67,56 +74,54 @@ class PresensiController extends Controller
     )]
     public function scan(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'qr_token' => 'required|string|max:512',
-        ]);
+        $rawQrToken = $request->input('qr_token');
 
-        $qrToken = $this->normalizeQrToken($validated['qr_token']);
+        if (! is_string($rawQrToken) || trim($rawQrToken) === '') {
+            return $this->errorResponse('QR token wajib diisi', 422);
+        }
+
+        if (strlen($rawQrToken) > 512) {
+            return $this->errorResponse('QR token tidak valid', 422);
+        }
+
+        $qrToken = $this->normalizeQrToken($rawQrToken);
 
         Log::info('Presensi Scan Request', [
             'qr_token_normalized' => $qrToken,
-            'qr_token_type' => gettype($validated['qr_token']),
+            'qr_token_type' => gettype($rawQrToken),
             'user_id' => $request->user()->id,
         ]);
 
         if (! Str::isUuid($qrToken)) {
             Log::warning('Invalid QR token format', [
-                'qr_token_received' => $validated['qr_token'],
+                'qr_token_received' => $rawQrToken,
                 'qr_token_normalized' => $qrToken,
                 'user_id' => $request->user()->id,
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'QR Code tidak valid',
-            ], 404);
+            return $this->errorResponse('QR Code tidak valid', 422);
         }
 
         $event = null;
-        $qrCodeRecord = null;
 
         // 1. Try to find event by NEW QR system (event_qr_codes table)
-        $qrCodeRecord = EventQrCode::where('qr_token', $qrToken)
-            ->where('is_active', true)
-            ->first();
+        $qrCodeRecord = EventQrCode::where('qr_token', $qrToken)->first();
 
         if ($qrCodeRecord) {
             Log::info('QR Code found in NEW system', ['qr_code_id' => $qrCodeRecord->id]);
 
+            if (! $qrCodeRecord->is_active) {
+                return $this->errorResponse('QR Code belum aktif atau sudah tidak valid.', 422);
+            }
+
             // Check if QR code is still valid (not expired)
             if ($qrCodeRecord->is_expired) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'QR Code sudah kadaluarsa. Silakan minta admin untuk generate QR code baru.',
-                ], 400);
+                return $this->errorResponse('QR Code sudah kadaluarsa. Silakan minta admin untuk generate QR code baru.', 410);
             }
 
             // Check if QR code is valid now (within valid_from and timeout)
             if (!$qrCodeRecord->is_valid_now) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'QR Code belum aktif atau sudah tidak valid.',
-                ], 400);
+                return $this->errorResponse('QR Code belum aktif atau sudah tidak valid.', 422);
             }
 
             $event = $qrCodeRecord->event;
@@ -136,18 +141,12 @@ class PresensiController extends Controller
                 'qr_token_searched' => $qrToken,
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'QR Code tidak valid',
-            ], 404);
+            return $this->errorResponse('QR Code tidak dikenali', 404);
         }
 
         // 3. Check event is active
         if ($event->status_event !== 'active') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Event ini sudah tidak aktif',
-            ], 400);
+            return $this->errorResponse('Event ini sudah tidak aktif', 422);
         }
 
         $userId = $request->user()->id;
@@ -165,28 +164,24 @@ class PresensiController extends Controller
                     'event_id' => $event->id,
                 ]);
 
-                abort(response()->json([
-                    'success' => false,
-                    'message' => 'QR Code tidak dikenali',
-                ], 403));
+                abort($this->errorResponse('Kamu belum terdaftar di event ini', 403));
             }
 
             // 5. Check double scan
             $alreadyScanned = Presensi::where('event_id', $event->id)
                 ->where('user_id', $userId)
+                ->lockForUpdate()
                 ->exists();
 
             if ($alreadyScanned) {
-                abort(response()->json([
-                    'success' => false,
-                    'message' => 'Kamu sudah melakukan presensi untuk event ini',
-                ], 400));
+                abort($this->errorResponse('Kamu sudah melakukan presensi untuk event ini', 409));
             }
 
             // 6. Record attendance
             $presensi = Presensi::create([
                 'event_id'   => $event->id,
                 'user_id'    => $userId,
+                'status'     => 'hadir',
                 'scanned_at' => now(),
             ]);
 
@@ -201,7 +196,10 @@ class PresensiController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Presensi berhasil dicatat',
-            'data'    => ['presensi' => $presensi],
+            'data'    => [
+                'attendance' => $this->serializeAttendance($presensi),
+                'event' => $presensi->event,
+            ],
         ], 201);
     }
 
@@ -214,6 +212,25 @@ class PresensiController extends Controller
         }
 
         return strtolower($token);
+    }
+
+    private function errorResponse(string $message, int $status): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'message' => $message,
+        ], $status);
+    }
+
+    private function serializeAttendance(Presensi $presensi): array
+    {
+        return [
+            'id' => $presensi->id,
+            'event_id' => $presensi->event_id,
+            'user_id' => $presensi->user_id,
+            'status' => $presensi->status,
+            'scanned_at' => $presensi->scanned_at,
+        ];
     }
 
     #[OA\Get(

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\AdminController;
+use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\EventController;
 use App\Http\Controllers\Api\Admin\EventQrCodeController;
 use App\Http\Controllers\Api\Admin\BroadcastController;
@@ -19,6 +20,8 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login',    [AuthController::class, 'login']);
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:6,1');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:6,1');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -41,6 +44,9 @@ Route::prefix('admin')
     ->middleware(['auth:sanctum', 'is_admin'])
     ->group(function () {
         Route::put('/change-password', [AdminProfileController::class, 'changePassword']);
+
+        // Dashboard
+        Route::get('/dashboard/attendance-chart', [DashboardController::class, 'attendanceChart']);
 
         // User management
         Route::get('/users',          [AdminController::class, 'getAllUsers']);

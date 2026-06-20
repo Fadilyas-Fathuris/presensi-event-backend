@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AlumniNotification;
 use App\Models\Category;
 use App\Models\Event;
+use App\Models\Presensi;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -642,7 +643,7 @@ class EventController extends Controller
         $registrations = $query->orderBy('registered_at', 'asc')->paginate($perPage);
         $presensiByUserId = $event->presensis()
             ->whereIn('user_id', collect($registrations->items())->pluck('user_id'))
-            ->get(['id', 'event_id', 'user_id', 'scanned_at'])
+            ->get(['id', 'event_id', 'user_id', 'status', 'scanned_at'])
             ->keyBy('user_id');
 
         return response()->json([
@@ -667,18 +668,19 @@ class EventController extends Controller
                     ? $this->formatEventUser($item->user)
                     : null;
                 $attendance = $attendanceByUserId?->get($item->user_id);
+                $isAttendanceItem = $item instanceof Presensi;
 
                 if ($attendance) {
                     $payload['attendance'] = [
-                        'id' => $attendance->id,
-                        'status' => $item->status === 'attended' || isset($attendance->scanned_at) ? 'attended' : $attendance->status,
+                        'id' => $isAttendanceItem ? $item->id : $attendance->id,
+                        'status' => $isAttendanceItem ? $item->status : $attendance->status,
                         'registered_at' => $attendance->registered_at ?? $item->registered_at ?? null,
-                        'scanned_at' => $attendance->scanned_at ?? null,
+                        'scanned_at' => $isAttendanceItem ? $item->scanned_at : $attendance->scanned_at,
                     ];
-                    $payload['scanned_at'] = $attendance->scanned_at ?? $payload['scanned_at'] ?? null;
+                    $payload['scanned_at'] = $payload['attendance']['scanned_at'] ?? $payload['scanned_at'] ?? null;
                 } else {
                     $payload['attendance'] = [
-                        'id' => null,
+                        'id' => $isAttendanceItem ? $item->id : null,
                         'status' => $item->status ?? 'registered',
                         'registered_at' => $item->registered_at ?? null,
                         'scanned_at' => $payload['scanned_at'] ?? null,

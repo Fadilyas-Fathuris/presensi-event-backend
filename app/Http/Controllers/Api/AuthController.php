@@ -5,12 +5,17 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Models\AlumniNotification;
 use App\Models\User;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
 
 class AuthController extends Controller
@@ -168,6 +173,136 @@ class AuthController extends Controller
                 'access_token' => $token,
                 'token_type'   => 'Bearer',
             ],
+        ]);
+    }
+
+    #[OA\Post(
+        path: '/api/auth/forgot-password',
+        operationId: 'forgotPassword',
+        summary: 'Send password reset link',
+        description: 'Sends a password reset link to the user email when the account exists.',
+        tags: ['Authentication'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['email'],
+                properties: [
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'ahmad@gmail.com'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Reset link request accepted',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string', example: 'Jika email terdaftar, link reset password akan dikirim.'),
+                    ]
+                )
+            ),
+            new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')),
+            new OA\Response(response: 429, description: 'Too many reset requests', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $status = Password::sendResetLink($validated);
+
+        if ($status === Password::RESET_THROTTLED) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terlalu banyak permintaan reset password. Silakan coba lagi nanti.',
+            ], 429);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Jika email terdaftar, link reset password akan dikirim.',
+        ]);
+    }
+
+    #[OA\Post(
+        path: '/api/auth/reset-password',
+        operationId: 'resetPassword',
+        summary: 'Reset password',
+        description: 'Resets user password using the token sent to email.',
+        tags: ['Authentication'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['email', 'token', 'password', 'password_confirmation'],
+                properties: [
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'ahmad@gmail.com'),
+                    new OA\Property(property: 'token', type: 'string', example: 'reset-token-from-email'),
+                    new OA\Property(property: 'password', type: 'string', format: 'password', example: 'passwordbaru123'),
+                    new OA\Property(property: 'password_confirmation', type: 'string', format: 'password', example: 'passwordbaru123'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Password reset successful',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string', example: 'Password berhasil direset. Silakan login dengan password baru.'),
+                    ]
+                )
+            ),
+            new OA\Response(response: 422, description: 'Validation error or invalid token', content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')),
+        ]
+    )]
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $credentials = $request->validate([
+            'email' => ['required', 'email'],
+            'token' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $status = Password::reset(
+            $credentials,
+            function (User $user, string $password): void {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                    'password_changed_at' => now(),
+                    'remember_token' => Str::random(60),
+                ])->save();
+
+                $user->tokens()->delete();
+
+                event(new PasswordReset($user));
+
+                AlumniNotification::create([
+                    'user_id' => $user->id,
+                    'title' => 'Password Berhasil Direset',
+                    'body' => 'Password akun Anda berhasil direset pada ' . now()->translatedFormat('d F Y, H:i') . '. Jika Anda tidak melakukan perubahan ini, segera hubungi admin.',
+                    'type' => 'password_reset',
+                    'priority' => 'high',
+                    'data' => [
+                        'changed_at' => now()->toIso8601String(),
+                    ],
+                    'is_read' => false,
+                ]);
+            }
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            throw ValidationException::withMessages([
+                'email' => ['Token reset password tidak valid atau sudah kedaluwarsa.'],
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password berhasil direset. Silakan login dengan password baru.',
         ]);
     }
 

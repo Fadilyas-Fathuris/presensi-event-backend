@@ -124,7 +124,7 @@ class AdminEventApiTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.registrations.0.user.name', 'Ahmad Fauzi')
             ->assertJsonPath('data.registrations.0.user.angkatan', '2020')
-            ->assertJsonPath('data.registrations.0.attendance.status', 'attended')
+            ->assertJsonPath('data.registrations.0.attendance.status', 'hadir')
             ->assertJsonPath('data.summary.total_registered', 1)
             ->assertJsonPath('data.summary.total_attended', 1)
             ->assertJsonPath('data.summary.remaining_quota', 99);
@@ -134,7 +134,7 @@ class AdminEventApiTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.attendances.0.user.name', 'Ahmad Fauzi')
             ->assertJsonPath('data.attendances.0.user.angkatan', '2020')
-            ->assertJsonPath('data.attendances.0.attendance.status', 'attended')
+            ->assertJsonPath('data.attendances.0.attendance.status', 'hadir')
             ->assertJsonPath('data.summary.total_attended', 1);
     }
 
