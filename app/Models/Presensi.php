@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Presensi extends Model
 {
+    protected $table = 'presensis';
+
     protected $fillable = [
         'event_id',
         'user_id',

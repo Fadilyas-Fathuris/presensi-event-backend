@@ -11,9 +11,11 @@ use App\Http\Controllers\Api\PresensiController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\UserManagementController;
 use App\Http\Controllers\Api\WhatsappSettingsController;
+use App\Http\Controllers\Api\EventRecommendationController;
 use Illuminate\Support\Facades\Route;
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
+
+// ── Auth
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login',    [AuthController::class, 'login']);
@@ -28,13 +30,13 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-// ── User Management (Frontend compatibility) ─────────────────────────────────
+// ── User Management (Frontend compatibility)
 Route::get('/users',         [UserManagementController::class, 'index']);
 Route::put('/users/{id}',    [UserManagementController::class, 'update']);
 Route::patch('/users/{id}',  [UserManagementController::class, 'update']);
 Route::delete('/users/{id}', [UserManagementController::class, 'destroy']);
 
-// ── Admin ─────────────────────────────────────────────────────────────────────
+// ── Admin
 Route::prefix('admin')
     ->middleware(['auth:sanctum', 'is_admin'])
     ->group(function () {
@@ -70,7 +72,7 @@ Route::prefix('admin')
         Route::get('/activity-logs', [AdminController::class, 'getActivityLogs']);
     });
 
-// ── Settings ─────────────────────────────────────────────────────────────────
+// ── Settings
 Route::prefix('settings')
     ->middleware(['auth:sanctum', 'is_admin'])
     ->group(function () {
@@ -80,15 +82,17 @@ Route::prefix('settings')
             ->middleware('throttle:6,1');
     });
 
-// ── Alumni Notifications ──────────────────────────────────────────────────────
+// ── Alumni Notifications & Recommendations 
 Route::middleware(['auth:sanctum', 'is_alumni'])->group(function () {
     Route::get('/alumni/notifications', [AlumniNotificationController::class, 'index']);
     Route::get('/alumni/notifications/unread-count', [AlumniNotificationController::class, 'unreadCount']);
     Route::put('/alumni/notifications/read-all', [AlumniNotificationController::class, 'markAllAsRead']);
     Route::put('/alumni/notifications/{id}/read', [AlumniNotificationController::class, 'markAsRead']);
+
+    Route::get('/alumni/recommendations', [EventRecommendationController::class, 'index']);
 });
 
-// ── Events & Registration (Alumni) ────────────────────────────────────────────
+// ── Events & Registration (Alumni) 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/events',                  [RegistrationController::class, 'index']);
     Route::get('/events/{id}',             [RegistrationController::class, 'show']);
@@ -96,7 +100,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/events/{id}/register', [RegistrationController::class, 'cancel']);
 });
 
-// ── Presensi (Alumni) ─────────────────────────────────────────────────────────
+// ── Presensi (Alumni)
 Route::prefix('presensi')
     ->middleware('auth:sanctum')
     ->group(function () {

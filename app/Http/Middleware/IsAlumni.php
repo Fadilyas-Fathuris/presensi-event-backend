@@ -20,3 +20,4 @@ class IsAlumni
         return $next($request);
     }
 }
+
