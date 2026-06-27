@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\AdminController;
 use App\Http\Controllers\Api\Admin\DashboardController;
+use App\Http\Controllers\Api\Admin\EventCategoryController;
 use App\Http\Controllers\Api\Admin\EventController;
 use App\Http\Controllers\Api\Admin\EventQrCodeController;
 use App\Http\Controllers\Api\Admin\BroadcastController;
@@ -56,7 +57,11 @@ Route::prefix('admin')
         Route::delete('/users/{id}',  [AdminController::class, 'deleteUser']);
 
         // Event management
-        Route::get('/event-categories',            [EventController::class, 'eventCategories']);
+        Route::get('/event-categories',            [EventCategoryController::class, 'index']);
+        Route::post('/event-categories',           [EventCategoryController::class, 'store']);
+        Route::get('/event-categories/{id}',       [EventCategoryController::class, 'show']);
+        Route::put('/event-categories/{id}',       [EventCategoryController::class, 'update']);
+        Route::delete('/event-categories/{id}',    [EventCategoryController::class, 'destroy']);
         Route::get('/events',                      [EventController::class, 'index']);
         Route::get('/events/{id}',                 [EventController::class, 'show']);
         Route::post('/events',                     [EventController::class, 'store']);
