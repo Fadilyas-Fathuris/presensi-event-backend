@@ -197,12 +197,12 @@ class EventController extends Controller
             'event_title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'location' => 'required|string|max:255',
-            'event_date' => 'required|date_format:Y-m-d|after_or_equal:today',
+            'event_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'start_time' => ['required', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
             'end_time' => ['required', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
             'quota' => 'nullable|integer|min:1',
             'poster' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120', // 5MB
-        ]);
+        ], $this->eventValidationMessages());
 
         $validated = $this->normalizeEventPayload($validated);
         $this->ensureEndTimeAfterStartTime($validated['start_time'], $validated['end_time']);
@@ -298,12 +298,12 @@ class EventController extends Controller
             'event_title' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
             'location' => 'sometimes|string|max:255',
-            'event_date' => 'sometimes|date_format:Y-m-d',
+            'event_date' => ['sometimes', 'date_format:Y-m-d', 'after_or_equal:today'],
             'start_time' => ['sometimes', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
             'end_time' => ['sometimes', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
             'quota' => 'nullable|integer|min:1',
             'poster' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120', // 5MB
-        ]);
+        ], $this->eventValidationMessages());
 
         $validated = $this->normalizeEventPayload($validated);
         $this->ensureEndTimeAfterStartTime(
@@ -708,6 +708,13 @@ class EventController extends Controller
         }
 
         return $payload;
+    }
+
+    private function eventValidationMessages(): array
+    {
+        return [
+            'event_date.after_or_equal' => 'Tanggal event tidak boleh lebih awal dari hari ini.',
+        ];
     }
 
     private function normalizeTime(string $time, string $field): string

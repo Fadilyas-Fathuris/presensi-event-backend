@@ -168,6 +168,76 @@ class AdminEventApiTest extends TestCase
             ->assertJsonPath('data.events.0.quota_message', 'Kuota penuh, segera hubungi penyelenggara');
     }
 
+    public function test_event_date_before_today_is_rejected_for_create_and_both_update_routes(): void
+    {
+        $admin = $this->createAdmin();
+        $event = $this->createEvent($admin);
+        $pastDate = now()->subDay()->format('Y-m-d');
+        $message = 'Tanggal event tidak boleh lebih awal dari hari ini.';
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/admin/events', [
+            'category_id' => $event->category_id,
+            'event_title' => 'Event Tanggal Lampau',
+            'location' => 'Aula',
+            'event_date' => $pastDate,
+            'start_time' => '08:00',
+            'end_time' => '10:00',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.event_date.0', $message);
+
+        $this->putJson("/api/admin/events/{$event->id}", [
+            'event_date' => $pastDate,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.event_date.0', $message);
+
+        $this->postJson("/api/admin/events/{$event->id}", [
+            'event_date' => $pastDate,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.event_date.0', $message);
+    }
+
+    public function test_event_date_today_is_accepted_for_create_and_both_update_routes(): void
+    {
+        $admin = $this->createAdmin();
+        $event = $this->createEvent($admin);
+        $today = now()->format('Y-m-d');
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/admin/events', [
+            'category_id' => $event->category_id,
+            'event_title' => 'Event Hari Ini',
+            'location' => 'Aula',
+            'event_date' => $today,
+            'start_time' => '08:00',
+            'end_time' => '10:00',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('success', true);
+
+        $createdEvent = Event::query()
+            ->where('event_title', 'Event Hari Ini')
+            ->firstOrFail();
+        $this->assertSame($today, $createdEvent->event_date->format('Y-m-d'));
+
+        $this->putJson("/api/admin/events/{$event->id}", [
+            'event_date' => $today,
+        ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->postJson("/api/admin/events/{$event->id}", [
+            'event_date' => $today,
+        ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+    }
+
     private function createAdmin(): User
     {
         return User::query()->create([
