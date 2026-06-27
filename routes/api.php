@@ -35,10 +35,12 @@ Route::prefix('auth')->group(function () {
 });
 
 // ── User Management (Frontend compatibility)
-Route::get('/users',         [UserManagementController::class, 'index']);
-Route::put('/users/{id}',    [UserManagementController::class, 'update']);
-Route::patch('/users/{id}',  [UserManagementController::class, 'update']);
-Route::delete('/users/{id}', [UserManagementController::class, 'destroy']);
+Route::middleware(['auth:sanctum', 'is_admin'])->group(function () {
+    Route::get('/users',         [UserManagementController::class, 'index']);
+    Route::put('/users/{id}',    [UserManagementController::class, 'update']);
+    Route::patch('/users/{id}',  [UserManagementController::class, 'update']);
+    Route::delete('/users/{id}', [UserManagementController::class, 'destroy']);
+});
 
 // ── Admin
 Route::prefix('admin')
@@ -54,6 +56,7 @@ Route::prefix('admin')
         Route::get('/users/{id}',     [AdminController::class, 'getUser']);
         Route::post('/users',         [AdminController::class, 'createUser']);
         Route::put('/users/{id}',     [AdminController::class, 'updateUser']);
+        Route::patch('/users/{id}/status', [AdminController::class, 'updateUserStatus']);
         Route::delete('/users/{id}',  [AdminController::class, 'deleteUser']);
 
         // Event management

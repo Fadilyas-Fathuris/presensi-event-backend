@@ -4,11 +4,29 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class UserManagementTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $admin = User::query()->create([
+            'first_name' => 'Authenticated',
+            'last_name' => 'Admin',
+            'gender' => 'Laki-laki',
+            'email' => 'authenticated-admin@example.com',
+            'password' => 'password',
+            'role' => 'admin',
+            'status' => 'active',
+        ]);
+
+        Sanctum::actingAs($admin);
+    }
 
     public function test_can_list_non_admin_users_for_kelola_user_page(): void
     {

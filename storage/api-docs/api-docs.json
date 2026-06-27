@@ -43,6 +43,21 @@
                             "type": "integer",
                             "example": 10
                         }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Filter users by approval status",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "active",
+                                "inactive",
+                                "rejected"
+                            ]
+                        }
                     }
                 ],
                 "responses": {
@@ -473,6 +488,91 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users/{id}/status": {
+            "patch": {
+                "tags": [
+                    "Admin - User Management"
+                ],
+                "summary": "Update alumni user approval status",
+                "description": "Approves, rejects, or deactivates an alumni user. Admin only.",
+                "operationId": "adminUpdateUserStatus",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 2
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "status"
+                                ],
+                                "properties": {
+                                    "status": {
+                                        "type": "string",
+                                        "example": "active",
+                                        "enum": [
+                                            "active",
+                                            "inactive",
+                                            "rejected"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "User status updated successfully"
+                    },
+                    "403": {
+                        "description": "Admin user status cannot be changed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
                                 }
                             }
                         }
@@ -2794,7 +2894,7 @@
                     "Authentication"
                 ],
                 "summary": "Register a new alumni user",
-                "description": "Creates a new alumni account and returns an access token.",
+                "description": "Creates a pending alumni account that requires admin approval before login.",
                 "operationId": "register",
                 "requestBody": {
                     "required": true,
@@ -2872,7 +2972,7 @@
                                         },
                                         "message": {
                                             "type": "string",
-                                            "example": "Registration successful"
+                                            "example": "Registrasi berhasil. Akun Anda menunggu persetujuan admin."
                                         },
                                         "data": {
                                             "properties": {
@@ -2881,11 +2981,13 @@
                                                 },
                                                 "access_token": {
                                                     "type": "string",
-                                                    "example": "1|abc123..."
+                                                    "example": null,
+                                                    "nullable": true
                                                 },
                                                 "token_type": {
                                                     "type": "string",
-                                                    "example": "Bearer"
+                                                    "example": null,
+                                                    "nullable": true
                                                 }
                                             },
                                             "type": "object"
@@ -4302,8 +4404,10 @@
                                         "type": "string",
                                         "example": "active",
                                         "enum": [
+                                            "pending",
                                             "active",
-                                            "inactive"
+                                            "inactive",
+                                            "rejected"
                                         ]
                                     }
                                 },

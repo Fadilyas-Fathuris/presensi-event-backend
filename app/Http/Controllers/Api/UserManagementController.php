@@ -103,7 +103,7 @@ class UserManagementController extends Controller
                     new OA\Property(property: 'graduation_year', type: 'string', nullable: true, example: '2020'),
                     new OA\Property(property: 'birth_date', type: 'string', nullable: true, format: 'date', example: '2000-01-01'),
                     new OA\Property(property: 'role', type: 'string', enum: ['admin', 'alumni', 'user'], example: 'alumni'),
-                    new OA\Property(property: 'status', type: 'string', enum: ['active', 'inactive'], example: 'active'),
+                    new OA\Property(property: 'status', type: 'string', enum: ['pending', 'active', 'inactive', 'rejected'], example: 'active'),
                 ]
             )
         ),
@@ -182,7 +182,7 @@ class UserManagementController extends Controller
             'graduation_year' => ['nullable', 'string', 'max:10'],
             'birth_date' => ['nullable', 'date', 'before_or_equal:today'],
             'role' => ['required', 'string', Rule::in(['alumni', 'user'])],
-            'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
+            'status' => ['required', 'string', Rule::in(['pending', 'active', 'inactive', 'rejected'])],
         ]);
 
         [$firstName, $lastName] = $this->splitName($validated['name']);
@@ -209,6 +209,10 @@ class UserManagementController extends Controller
         }
 
         $user->update($payload);
+
+        if (in_array($payload['status'] ?? null, ['pending', 'inactive', 'rejected'], true)) {
+            $user->tokens()->delete();
+        }
 
         ActivityLog::log('edit_user', 'Admin updated user details for: '.$user->email);
 

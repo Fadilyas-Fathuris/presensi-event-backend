@@ -34,6 +34,13 @@ class AdminController extends Controller
                 description: 'Number of results per page',
                 schema: new OA\Schema(type: 'integer', example: 10)
             ),
+            new OA\Parameter(
+                name: 'status',
+                in: 'query',
+                required: false,
+                description: 'Filter users by approval status',
+                schema: new OA\Schema(type: 'string', enum: ['pending', 'active', 'inactive', 'rejected'])
+            ),
         ],
         responses: [
             new OA\Response(
@@ -73,18 +80,29 @@ class AdminController extends Controller
     )]
     public function getAllUsers(Request $request): JsonResponse
     {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'status' => ['nullable', Rule::in(['pending', 'active', 'inactive', 'rejected'])],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
         $query = User::where('role', 'alumni');
 
-        if ($request->filled('search')) {
-            $search = $request->search;
+        if (! empty($filters['search'])) {
+            $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('name',     'like', "%{$search}%")
-                  ->orWhere('email',    'like', "%{$search}%")
-                  ->orWhere('angkatan', 'like', "%{$search}%");
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('graduation_year', 'like', "%{$search}%");
             });
         }
 
-        $perPage = $request->get('per_page', 10);
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        $perPage = $filters['per_page'] ?? 10;
         $users   = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         return response()->json([
@@ -331,6 +349,91 @@ class AdminController extends Controller
             'success' => true,
             'message' => 'User updated successfully',
             'data'    => ['user' => $user->fresh()],
+        ]);
+    }
+
+    #[OA\Patch(
+        path: '/api/admin/users/{id}/status',
+        operationId: 'adminUpdateUserStatus',
+        summary: 'Update alumni user approval status',
+        description: 'Approves, rejects, or deactivates an alumni user. Admin only.',
+        security: [['bearerAuth' => []]],
+        tags: ['Admin - User Management'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                schema: new OA\Schema(type: 'integer', example: 2)
+            ),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['status'],
+                properties: [
+                    new OA\Property(
+                        property: 'status',
+                        type: 'string',
+                        enum: ['active', 'inactive', 'rejected'],
+                        example: 'active'
+                    ),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'User status updated successfully'),
+            new OA\Response(response: 403, description: 'Admin user status cannot be changed', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'User not found', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')),
+        ]
+    )]
+    public function updateUserStatus(Request $request, int $id): JsonResponse
+    {
+        $user = User::find($id);
+
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found',
+            ], 404);
+        }
+
+        if ($request->user()->id === $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin cannot change their own status',
+            ], 403);
+        }
+
+        if ($user->role === 'admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin user status cannot be changed',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(['active', 'inactive', 'rejected'])],
+        ]);
+
+        $user->update(['status' => $validated['status']]);
+
+        if (in_array($validated['status'], ['inactive', 'rejected'], true)) {
+            $user->tokens()->delete();
+        }
+
+        \App\Models\ActivityLog::log(
+            'update_user_status',
+            "Admin updated user status for {$user->email} to {$validated['status']}"
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User status updated successfully',
+            'data' => [
+                'user' => $user->fresh(),
+            ],
         ]);
     }
 
