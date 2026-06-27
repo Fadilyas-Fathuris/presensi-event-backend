@@ -107,10 +107,12 @@ class AuthRegisterTest extends TestCase
         $this->postJson('/api/auth/register', $this->validPayload())
             ->assertCreated()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('message', 'Registration successful')
+            ->assertJsonPath('message', 'Registrasi berhasil. Akun Anda menunggu persetujuan admin.')
             ->assertJsonPath('data.user.email', 'alumni@example.com')
             ->assertJsonPath('data.user.role', 'alumni')
-            ->assertJsonPath('data.token_type', 'Bearer')
+            ->assertJsonPath('data.user.status', 'pending')
+            ->assertJsonPath('data.access_token', null)
+            ->assertJsonPath('data.token_type', null)
             ->assertJsonStructure([
                 'data' => [
                     'user',
@@ -128,7 +130,10 @@ class AuthRegisterTest extends TestCase
             'graduation_year' => '2015',
             'birth_date' => '2000-01-01',
             'role' => 'alumni',
+            'status' => 'pending',
         ]);
+
+        $this->assertDatabaseCount('personal_access_tokens', 0);
     }
 
     private function validPayload(array $overrides = []): array

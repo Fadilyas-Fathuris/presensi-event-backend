@@ -24,7 +24,7 @@ class AuthController extends Controller
     path: '/api/auth/register',
     operationId: 'register',
     summary: 'Register a new alumni user',
-    description: 'Creates a new alumni account and returns an access token.',
+    description: 'Creates a pending alumni account that requires admin approval before login.',
     tags: ['Authentication'],
     requestBody: new OA\RequestBody(
         required: true,
@@ -50,14 +50,14 @@ class AuthController extends Controller
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'message', type: 'string',  example: 'Registration successful'),
+                        new OA\Property(property: 'message', type: 'string',  example: 'Registrasi berhasil. Akun Anda menunggu persetujuan admin.'),
                         new OA\Property(
                             property: 'data',
                             type: 'object',
                             properties: [
                                 new OA\Property(property: 'user',         ref: '#/components/schemas/User'),
-                                new OA\Property(property: 'access_token', type: 'string', example: '1|abc123...'),
-                                new OA\Property(property: 'token_type',   type: 'string', example: 'Bearer'),
+                                new OA\Property(property: 'access_token', type: 'string', nullable: true, example: null),
+                                new OA\Property(property: 'token_type',   type: 'string', nullable: true, example: null),
                             ]
                         ),
                     ]
@@ -82,17 +82,16 @@ class AuthController extends Controller
             'graduation_year' => $request->graduation_year,
             'birth_date'      => $request->birth_date,
             'role'            => 'alumni',
+            'status'          => 'pending',
         ]);
-
-        $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'success' => true,
-            'message' => 'Registration successful',
+            'message' => 'Registrasi berhasil. Akun Anda menunggu persetujuan admin.',
             'data'    => [
                 'user'         => $user,
-                'access_token' => $token,
-                'token_type'   => 'Bearer',
+                'access_token' => null,
+                'token_type'   => null,
             ],
         ], 201);
     }
@@ -154,6 +153,25 @@ class AuthController extends Controller
                 'success' => false,
                 'message' => 'email atau password salah',
             ], 401);
+        }
+
+        if ($user->role !== 'admin') {
+            $statusMessage = match ($user->status) {
+                'active' => null,
+                'pending' => 'Akun Anda masih menunggu persetujuan admin.',
+                'rejected' => 'Pendaftaran akun Anda ditolak. Hubungi admin.',
+                'inactive' => 'Akun Anda sedang dinonaktifkan. Hubungi admin.',
+                default => 'Akun Anda sedang dinonaktifkan. Hubungi admin.',
+            };
+
+            if ($statusMessage !== null) {
+                $user->tokens()->delete();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => $statusMessage,
+                ], 403);
+            }
         }
 
         // Revoke all previous tokens (single session policy)
