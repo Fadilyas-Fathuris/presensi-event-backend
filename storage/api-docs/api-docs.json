@@ -962,49 +962,300 @@
         "/api/admin/event-categories": {
             "get": {
                 "tags": [
-                    "Admin - Event Management"
+                    "Admin - Event Category Management"
                 ],
                 "summary": "Get event categories",
-                "description": "Returns list of event categories for admin event form. Admin only.",
                 "operationId": "adminGetEventCategories",
                 "responses": {
                     "200": {
-                        "description": "List of event categories",
+                        "description": "List of event categories"
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "data": {
-                                            "properties": {
-                                                "categories": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "properties": {
-                                                            "id": {
-                                                                "type": "integer",
-                                                                "example": 1
-                                                            },
-                                                            "category_name": {
-                                                                "type": "string",
-                                                                "example": "Reuni"
-                                                            },
-                                                            "description": {
-                                                                "type": "string",
-                                                                "example": "Event reuni alumni"
-                                                            }
-                                                        },
-                                                        "type": "object"
-                                                    }
-                                                }
-                                            },
-                                            "type": "object"
-                                        }
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Admin - Event Category Management"
+                ],
+                "summary": "Create an event category",
+                "operationId": "adminCreateEventCategory",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "category_name"
+                                ],
+                                "properties": {
+                                    "category_name": {
+                                        "type": "string",
+                                        "example": "Seminar",
+                                        "maxLength": 100
                                     },
-                                    "type": "object"
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Kategori untuk acara seminar alumni",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Event category created successfully"
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/event-categories/{id}": {
+            "get": {
+                "tags": [
+                    "Admin - Event Category Management"
+                ],
+                "summary": "Get an event category",
+                "operationId": "adminGetEventCategory",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Event category detail"
+                    },
+                    "404": {
+                        "description": "Event category not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Admin - Event Category Management"
+                ],
+                "summary": "Update an event category",
+                "operationId": "adminUpdateEventCategory",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "category_name"
+                                ],
+                                "properties": {
+                                    "category_name": {
+                                        "type": "string",
+                                        "example": "Seminar Updated",
+                                        "maxLength": 100
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Deskripsi diperbarui",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Event category updated successfully"
+                    },
+                    "404": {
+                        "description": "Event category not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Admin - Event Category Management"
+                ],
+                "summary": "Delete an event category",
+                "operationId": "adminDeleteEventCategory",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Event category deleted successfully"
+                    },
+                    "404": {
+                        "description": "Event category not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Event category is still used by events",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
                                 }
                             }
                         }
@@ -1906,13 +2157,19 @@
                                                             "type": "string",
                                                             "example": "550e8400-e29b-41d4-a716-446655440000"
                                                         },
+                                                        "qr_payload": {
+                                                            "type": "string",
+                                                            "example": "550e8400-e29b-41d4-a716-446655440000"
+                                                        },
                                                         "qr_code_image": {
                                                             "type": "string",
-                                                            "example": "qrcodes/550e8400.svg"
+                                                            "example": null,
+                                                            "nullable": true
                                                         },
                                                         "qr_code_url": {
                                                             "type": "string",
-                                                            "example": "http://localhost:8000/storage/qrcodes/550e8400.svg"
+                                                            "example": null,
+                                                            "nullable": true
                                                         },
                                                         "timeout_minutes": {
                                                             "type": "integer",
@@ -2009,9 +2266,14 @@
                         "application/json": {
                             "schema": {
                                 "required": [
+                                    "valid_from",
                                     "timeout_minutes"
                                 ],
                                 "properties": {
+                                    "valid_from": {
+                                        "type": "string",
+                                        "example": "2026-06-02 03:00:00"
+                                    },
                                     "timeout_minutes": {
                                         "type": "integer",
                                         "example": 60
@@ -2053,13 +2315,19 @@
                                                             "type": "string",
                                                             "example": "550e8400-e29b-41d4-a716-446655440000"
                                                         },
+                                                        "qr_payload": {
+                                                            "type": "string",
+                                                            "example": "550e8400-e29b-41d4-a716-446655440000"
+                                                        },
                                                         "qr_code_image": {
                                                             "type": "string",
-                                                            "example": "qrcodes/550e8400.svg"
+                                                            "example": null,
+                                                            "nullable": true
                                                         },
                                                         "qr_code_url": {
                                                             "type": "string",
-                                                            "example": "http://localhost:8000/storage/qrcodes/550e8400.svg"
+                                                            "example": null,
+                                                            "nullable": true
                                                         },
                                                         "valid_from": {
                                                             "type": "string",
@@ -2735,6 +3003,157 @@
                 }
             }
         },
+        "/api/auth/forgot-password": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Send password reset link",
+                "description": "Sends a password reset link to the user email when the account exists.",
+                "operationId": "forgotPassword",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "ahmad@gmail.com"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Reset link request accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Jika email terdaftar, link reset password akan dikirim."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many reset requests",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/reset-password": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Reset password",
+                "description": "Resets user password using the token sent to email.",
+                "operationId": "resetPassword",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "token",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "ahmad@gmail.com"
+                                    },
+                                    "token": {
+                                        "type": "string",
+                                        "example": "reset-token-from-email"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "passwordbaru123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "passwordbaru123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password reset successful",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Password berhasil direset. Silakan login dengan password baru."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error or invalid token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/auth/logout": {
             "post": {
                 "tags": [
@@ -3213,8 +3632,11 @@
                                         },
                                         "data": {
                                             "properties": {
-                                                "presensi": {
+                                                "attendance": {
                                                     "$ref": "#/components/schemas/Presensi"
+                                                },
+                                                "event": {
+                                                    "$ref": "#/components/schemas/Event"
                                                 }
                                             },
                                             "type": "object"
@@ -3225,8 +3647,8 @@
                             }
                         }
                     },
-                    "400": {
-                        "description": "Scan failed (inactive, expired, out of window, or double scan)",
+                    "422": {
+                        "description": "QR token is invalid, inactive, or not yet valid",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3247,7 +3669,7 @@
                                         },
                                         "message": {
                                             "type": "string",
-                                            "example": "QR Code tidak dikenali"
+                                            "example": "Kamu belum terdaftar di event ini"
                                         }
                                     },
                                     "type": "object"
@@ -3257,6 +3679,26 @@
                     },
                     "404": {
                         "description": "QR token not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Attendance already recorded",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "410": {
+                        "description": "QR token expired",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3711,6 +4153,26 @@
                                                         "type": "string",
                                                         "example": "ahmad@example.com"
                                                     },
+                                                    "phone": {
+                                                        "type": "string",
+                                                        "example": "6281234567890",
+                                                        "nullable": true
+                                                    },
+                                                    "gender": {
+                                                        "type": "string",
+                                                        "example": "Laki-laki",
+                                                        "nullable": true
+                                                    },
+                                                    "graduation_year": {
+                                                        "type": "string",
+                                                        "example": "2020",
+                                                        "nullable": true
+                                                    },
+                                                    "birth_date": {
+                                                        "type": "string",
+                                                        "example": "2000-01-01",
+                                                        "nullable": true
+                                                    },
                                                     "role": {
                                                         "type": "string",
                                                         "example": "alumni"
@@ -3802,6 +4264,31 @@
                                         "format": "email",
                                         "example": "ahmad.new@example.com"
                                     },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "6281234567890",
+                                        "nullable": true
+                                    },
+                                    "gender": {
+                                        "type": "string",
+                                        "example": "Laki-laki",
+                                        "nullable": true,
+                                        "enum": [
+                                            "Laki-laki",
+                                            "Perempuan"
+                                        ]
+                                    },
+                                    "graduation_year": {
+                                        "type": "string",
+                                        "example": "2020",
+                                        "nullable": true
+                                    },
+                                    "birth_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2000-01-01",
+                                        "nullable": true
+                                    },
                                     "role": {
                                         "type": "string",
                                         "example": "alumni",
@@ -3849,6 +4336,26 @@
                                                 "email": {
                                                     "type": "string",
                                                     "example": "ahmad.new@example.com"
+                                                },
+                                                "phone": {
+                                                    "type": "string",
+                                                    "example": "6281234567890",
+                                                    "nullable": true
+                                                },
+                                                "gender": {
+                                                    "type": "string",
+                                                    "example": "Laki-laki",
+                                                    "nullable": true
+                                                },
+                                                "graduation_year": {
+                                                    "type": "string",
+                                                    "example": "2020",
+                                                    "nullable": true
+                                                },
+                                                "birth_date": {
+                                                    "type": "string",
+                                                    "example": "2000-01-01",
+                                                    "nullable": true
                                                 },
                                                 "role": {
                                                     "type": "string",
@@ -4593,6 +5100,10 @@
         {
             "name": "Admin - Broadcast",
             "description": "Admin - Broadcast"
+        },
+        {
+            "name": "Admin - Event Category Management",
+            "description": "Admin - Event Category Management"
         },
         {
             "name": "Admin - Event Management",
