@@ -124,6 +124,85 @@ class UserApprovalTest extends TestCase
             ->assertJsonPath('message', 'Admin user status cannot be changed');
     }
 
+    public function test_admin_can_bulk_update_eligible_users_and_skip_admins(): void
+    {
+        $admin = $this->createUser('admin@example.com', 'admin', 'active');
+        $otherAdmin = $this->createUser('other-admin@example.com', 'admin', 'active');
+        $alumni = $this->createUser('alumni@example.com', 'alumni', 'active');
+        $alumni->createToken('alumni-token');
+        $otherAdmin->createToken('other-admin-token');
+        Sanctum::actingAs($admin);
+
+        $this->patchJson('/api/admin/users/bulk-status', [
+            'user_ids' => [$alumni->id, $admin->id, $otherAdmin->id],
+            'status' => 'inactive',
+        ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Bulk user status updated successfully')
+            ->assertJsonPath('data.updated_count', 1)
+            ->assertJsonPath('data.skipped_count', 2)
+            ->assertJsonPath('data.status', 'inactive')
+            ->assertJsonPath('data.updated_user_ids.0', $alumni->id)
+            ->assertJsonPath('data.skipped_user_ids.0', $admin->id)
+            ->assertJsonPath('data.skipped_user_ids.1', $otherAdmin->id);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $alumni->id,
+            'status' => 'inactive',
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $otherAdmin->id,
+            'status' => 'active',
+        ]);
+        $this->assertDatabaseMissing('personal_access_tokens', [
+            'tokenable_id' => $alumni->id,
+            'tokenable_type' => User::class,
+        ]);
+        $this->assertDatabaseHas('personal_access_tokens', [
+            'tokenable_id' => $otherAdmin->id,
+            'tokenable_type' => User::class,
+        ]);
+    }
+
+    public function test_bulk_status_returns_unprocessable_when_all_users_are_ineligible(): void
+    {
+        $admin = $this->createUser('admin@example.com', 'admin', 'active');
+        $otherAdmin = $this->createUser('other-admin@example.com', 'admin', 'active');
+        Sanctum::actingAs($admin);
+
+        $this->patchJson('/api/admin/users/bulk-status', [
+            'user_ids' => [$admin->id, $otherAdmin->id],
+            'status' => 'rejected',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'No eligible users to update')
+            ->assertJsonPath('data.updated_count', 0)
+            ->assertJsonPath('data.skipped_count', 2)
+            ->assertJsonPath('data.skipped_user_ids.0', $admin->id)
+            ->assertJsonPath('data.skipped_user_ids.1', $otherAdmin->id);
+    }
+
+    public function test_bulk_status_does_not_accept_pending_status(): void
+    {
+        $admin = $this->createUser('admin@example.com', 'admin', 'active');
+        $alumni = $this->createUser('alumni@example.com', 'alumni', 'inactive');
+        Sanctum::actingAs($admin);
+
+        $this->patchJson('/api/admin/users/bulk-status', [
+            'user_ids' => [$alumni->id],
+            'status' => 'pending',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('status');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $alumni->id,
+            'status' => 'inactive',
+        ]);
+    }
+
     public function test_admin_user_list_can_filter_by_status(): void
     {
         $admin = $this->createUser('admin@example.com', 'admin', 'active');

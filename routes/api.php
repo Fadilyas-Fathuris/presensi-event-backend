@@ -53,6 +53,7 @@ Route::prefix('admin')
 
         // User management
         Route::get('/users',          [AdminController::class, 'getAllUsers']);
+        Route::patch('/users/bulk-status', [AdminController::class, 'bulkUpdateUserStatus']);
         Route::get('/users/{id}',     [AdminController::class, 'getUser']);
         Route::post('/users',         [AdminController::class, 'createUser']);
         Route::put('/users/{id}',     [AdminController::class, 'updateUser']);

@@ -585,6 +585,221 @@
                 ]
             }
         },
+        "/api/admin/users/bulk-status": {
+            "patch": {
+                "tags": [
+                    "Admin - User Management"
+                ],
+                "summary": "Bulk update user status",
+                "description": "Bulk updates the status of selected non-admin users. Admin users and the authenticated admin cannot be updated through this endpoint.",
+                "operationId": "adminBulkUpdateUserStatus",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "user_ids",
+                                    "status"
+                                ],
+                                "properties": {
+                                    "user_ids": {
+                                        "description": "IDs of users to update. Every ID must exist in users.id.",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        },
+                                        "example": [
+                                            1,
+                                            2,
+                                            3
+                                        ],
+                                        "minItems": 1
+                                    },
+                                    "status": {
+                                        "description": "Target user status. Pending is not allowed for bulk update.",
+                                        "type": "string",
+                                        "example": "active",
+                                        "enum": [
+                                            "active",
+                                            "inactive",
+                                            "rejected"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Bulk user status updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "success",
+                                        "message",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Bulk user status updated successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "updated_count": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "skipped_count": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "active",
+                                                    "enum": [
+                                                        "active",
+                                                        "inactive",
+                                                        "rejected"
+                                                    ]
+                                                },
+                                                "updated_user_ids": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "integer"
+                                                    },
+                                                    "example": [
+                                                        1,
+                                                        2,
+                                                        3
+                                                    ]
+                                                },
+                                                "skipped_user_ids": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "integer"
+                                                    },
+                                                    "example": [
+                                                        4
+                                                    ]
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error or no eligible users. user_ids is required and must be an array with at least one existing users.id. status must be active, inactive, or rejected.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "oneOf": [
+                                        {
+                                            "required": [
+                                                "success",
+                                                "message",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "success": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                },
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "No eligible users to update"
+                                                },
+                                                "data": {
+                                                    "properties": {
+                                                        "updated_count": {
+                                                            "type": "integer",
+                                                            "example": 0
+                                                        },
+                                                        "skipped_count": {
+                                                            "type": "integer",
+                                                            "example": 3
+                                                        },
+                                                        "status": {
+                                                            "type": "string",
+                                                            "example": "active",
+                                                            "enum": [
+                                                                "active",
+                                                                "inactive",
+                                                                "rejected"
+                                                            ]
+                                                        },
+                                                        "updated_user_ids": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "integer"
+                                                            },
+                                                            "example": []
+                                                        },
+                                                        "skipped_user_ids": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "integer"
+                                                            },
+                                                            "example": [
+                                                                1,
+                                                                2,
+                                                                3
+                                                            ]
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        {
+                                            "$ref": "#/components/schemas/ValidationError"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/activity-logs": {
             "get": {
                 "tags": [
