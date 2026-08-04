@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -13,7 +14,7 @@ class EventQrCode extends Model
         'qr_code_image',
         'qr_code_url',
         'valid_from',
-        'timeout_minutes',
+        'duration_days',
         'is_active',
         'created_by',
     ];
@@ -21,7 +22,7 @@ class EventQrCode extends Model
     protected $casts = [
         'valid_from' => 'datetime',
         'is_active' => 'boolean',
-        'timeout_minutes' => 'integer',
+        'duration_days' => 'integer',
     ];
 
     protected $appends = [
@@ -29,6 +30,9 @@ class EventQrCode extends Model
         'expired_at',
         'is_valid_now',
         'is_expired',
+        'valid_from_wib',
+        'expired_at_wib',
+        'created_at_wib',
     ];
 
     public function event(): BelongsTo
@@ -46,9 +50,12 @@ class EventQrCode extends Model
         return $this->qr_token;
     }
 
-    public function getExpiredAtAttribute()
+    /**
+     * Expiry = valid_from + duration_days days.
+     */
+    public function getExpiredAtAttribute(): ?Carbon
     {
-        return $this->valid_from?->copy()->addMinutes($this->timeout_minutes);
+        return $this->valid_from?->copy()->addDays($this->duration_days);
     }
 
     public function getIsValidNowAttribute(): bool
@@ -67,5 +74,46 @@ class EventQrCode extends Model
         }
 
         return now()->greaterThan($this->expired_at);
+    }
+
+    // ── WIB (Asia/Jakarta) formatted timestamps ────────────────────────────
+
+    /**
+     * valid_from in WIB format: "04 Agustus 2026, 13:18 WIB"
+     */
+    public function getValidFromWibAttribute(): ?string
+    {
+        return $this->formatWib($this->valid_from);
+    }
+
+    /**
+     * expired_at in WIB format: "07 Agustus 2026, 13:18 WIB"
+     */
+    public function getExpiredAtWibAttribute(): ?string
+    {
+        return $this->formatWib($this->expired_at);
+    }
+
+    /**
+     * created_at in WIB format.
+     */
+    public function getCreatedAtWibAttribute(): ?string
+    {
+        return $this->formatWib($this->created_at);
+    }
+
+    /**
+     * Format a Carbon instance to WIB display string.
+     */
+    private function formatWib(?Carbon $date): ?string
+    {
+        if (! $date) {
+            return null;
+        }
+
+        return $date->copy()
+            ->timezone('Asia/Jakarta')
+            ->locale('id')
+            ->translatedFormat('d F Y, H:i') . ' WIB';
     }
 }

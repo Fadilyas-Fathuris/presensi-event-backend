@@ -11,3 +11,6 @@ Artisan::command('inspire', function () {
 // Send reminder notifications for events starting within ~1 hour
 Schedule::command('notifications:upcoming-events')->everyTenMinutes();
 
+// Purge expired Sanctum tokens every hour (auto-logout for closed browsers)
+Schedule::command('sanctum:purge-expired')->hourly();
+

@@ -187,9 +187,10 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Login successful',
             'data'    => [
-                'user'         => $user,
-                'access_token' => $token,
-                'token_type'   => 'Bearer',
+                'user'             => $user,
+                'access_token'     => $token,
+                'token_type'       => 'Bearer',
+                'token_expires_in' => (int) config('sanctum.expiration', 120),
             ],
         ]);
     }
@@ -356,6 +357,61 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Logged out successfully',
+        ]);
+    }
+
+    /**
+     * Heartbeat / keep-alive endpoint.
+     *
+     * The frontend should call this periodically (e.g. every 5 minutes) while
+     * the tab is open. This updates `last_used_at` on the token, preventing
+     * it from expiring. When the browser/tab is closed, heartbeats stop and
+     * the token will expire naturally after the configured expiration window.
+     */
+    #[OA\Post(
+        path: '/api/auth/heartbeat',
+        operationId: 'heartbeat',
+        summary: 'Keep session alive',
+        description: 'Updates the token last_used_at timestamp. Call periodically to prevent auto-logout while the browser is open.',
+        security: [['bearerAuth' => []]],
+        tags: ['Authentication'],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Heartbeat acknowledged',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'data', type: 'object', properties: [
+                            new OA\Property(property: 'token_expires_in', type: 'integer', description: 'Remaining minutes until token expires', example: 115),
+                        ]),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 401,
+                description: 'Token expired or invalid',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
+    public function heartbeat(Request $request): JsonResponse
+    {
+        $token = $request->user()->currentAccessToken();
+
+        // Touch last_used_at to keep the token alive
+        $token->forceFill(['last_used_at' => now()])->save();
+
+        $expirationMinutes = (int) config('sanctum.expiration', 120);
+        $lastUsed = $token->last_used_at ?? $token->created_at;
+        $expiresAt = $lastUsed->addMinutes($expirationMinutes);
+        $remainingMinutes = max(0, (int) now()->diffInMinutes($expiresAt, false));
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'token_expires_in' => $remainingMinutes,
+            ],
         ]);
     }
 

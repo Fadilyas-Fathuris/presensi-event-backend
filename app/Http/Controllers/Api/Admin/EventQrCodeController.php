@@ -46,10 +46,11 @@ class EventQrCodeController extends Controller
                                         new OA\Property(property: 'qr_payload', type: 'string', example: '550e8400-e29b-41d4-a716-446655440000'),
                                         new OA\Property(property: 'qr_code_image', type: 'string', nullable: true, example: null),
                                         new OA\Property(property: 'qr_code_url', type: 'string', nullable: true, example: null),
-                                        new OA\Property(property: 'timeout_minutes', type: 'integer', example: 60),
+                                        new OA\Property(property: 'duration_days', type: 'integer', example: 3),
                                         new OA\Property(property: 'is_active', type: 'boolean', example: true),
-                                        new OA\Property(property: 'created_at', type: 'string', example: '2026-05-25T13:56:00.000000Z'),
-                                        new OA\Property(property: 'expired_at', type: 'string', example: '2026-05-25T14:56:00.000000Z'),
+                                        new OA\Property(property: 'created_at', type: 'string', example: '2026-08-04T13:18:00.000000Z'),
+                                        new OA\Property(property: 'valid_from_wib', type: 'string', example: '04 Agustus 2026, 13:18 WIB'),
+                                        new OA\Property(property: 'expired_at_wib', type: 'string', example: '07 Agustus 2026, 13:18 WIB'),
                                         new OA\Property(property: 'is_expired', type: 'boolean', example: false),
                                     ]
                                 ),
@@ -95,7 +96,7 @@ class EventQrCodeController extends Controller
         path: '/api/admin/events/{id}/qr/generate',
         operationId: 'adminGenerateEventQrCode',
         summary: 'Generate event QR code',
-        description: 'Generates a new QR code for a specific event. Previous active QR code will be deactivated. Admin only.',
+        description: 'Generates a new QR code for a specific event. QR is immediately active from now and valid for the specified number of days. Previous active QR code will be deactivated. Admin only.',
         security: [['bearerAuth' => []]],
         tags: ['Admin - Event QR Management'],
         parameters: [
@@ -109,10 +110,14 @@ class EventQrCodeController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['valid_from', 'timeout_minutes'],
+                required: ['duration_days'],
                 properties: [
-                    new OA\Property(property: 'valid_from', type: 'string', example: '2026-06-02 03:00:00'),
-                    new OA\Property(property: 'timeout_minutes', type: 'integer', example: 60),
+                    new OA\Property(
+                        property: 'duration_days',
+                        type: 'integer',
+                        description: 'Durasi berlaku QR code dalam satuan hari (1-30)',
+                        example: 3
+                    ),
                 ]
             )
         ),
@@ -123,7 +128,7 @@ class EventQrCodeController extends Controller
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'message', type: 'string', example: 'QR code generated successfully'),
+                        new OA\Property(property: 'message', type: 'string', example: 'QR code berhasil di-generate, berlaku selama 3 hari'),
                         new OA\Property(property: 'data', type: 'object',
                             properties: [
                                 new OA\Property(property: 'qr_code', type: 'object',
@@ -134,11 +139,11 @@ class EventQrCodeController extends Controller
                                         new OA\Property(property: 'qr_payload', type: 'string', example: '550e8400-e29b-41d4-a716-446655440000'),
                                         new OA\Property(property: 'qr_code_image', type: 'string', nullable: true, example: null),
                                         new OA\Property(property: 'qr_code_url', type: 'string', nullable: true, example: null),
-                                        new OA\Property(property: 'valid_from', type: 'string', example: '2026-05-25T13:56:00.000000Z'),
-                                        new OA\Property(property: 'timeout_minutes', type: 'integer', example: 60),
+                                        new OA\Property(property: 'duration_days', type: 'integer', example: 3),
                                         new OA\Property(property: 'is_active', type: 'boolean', example: true),
-                                        new OA\Property(property: 'created_at', type: 'string', example: '2026-05-25T13:56:00.000000Z'),
-                                        new OA\Property(property: 'expired_at', type: 'string', example: '2026-05-25T14:56:00.000000Z'),
+                                        new OA\Property(property: 'valid_from_wib', type: 'string', example: '04 Agustus 2026, 13:18 WIB'),
+                                        new OA\Property(property: 'expired_at_wib', type: 'string', example: '07 Agustus 2026, 13:18 WIB'),
+                                        new OA\Property(property: 'created_at_wib', type: 'string', example: '04 Agustus 2026, 13:18 WIB'),
                                         new OA\Property(property: 'is_valid_now', type: 'boolean', example: true),
                                         new OA\Property(property: 'is_expired', type: 'boolean', example: false),
                                     ]
@@ -166,30 +171,18 @@ class EventQrCodeController extends Controller
         }
 
         $validated = $request->validate([
-            'valid_from' => 'required|date',
-            'timeout_minutes' => 'required|integer|min:1|max:1440',
+            'duration_days' => 'required|integer|min:1|max:30',
+        ], [
+            'duration_days.required' => 'Durasi hari wajib diisi',
+            'duration_days.integer'  => 'Durasi hari harus berupa angka',
+            'duration_days.min'      => 'Durasi minimal 1 hari',
+            'duration_days.max'      => 'Durasi maksimal 30 hari',
         ]);
 
-        // Parse the datetime - frontend sends local time (Asia/Jakarta) without timezone suffix
-        // e.g. "2026-06-02 03:00:00"
-        // If frontend sends with timezone suffix (e.g. "...Z" or "+07:00"), 
-        // we need to interpret it as the intended local time, not convert it
-        $rawValidFrom = $validated['valid_from'];
-        
-        // Strip timezone suffix if present, then parse as app timezone
-        $cleanedDateTime = preg_replace('/[TZ]/', ' ', $rawValidFrom);
-        $cleanedDateTime = preg_replace('/[+-]\d{2}:\d{2}$/', '', trim($cleanedDateTime));
-        $cleanedDateTime = trim($cleanedDateTime);
-        
-        $validFrom = \Carbon\Carbon::parse($cleanedDateTime, config('app.timezone'));
+        // QR is immediately active from now
+        $validFrom = now();
 
-        Log::info('QR Generate - Input valid_from', [
-            'input' => $rawValidFrom,
-            'cleaned' => $cleanedDateTime,
-            'parsed_datetime' => $validFrom->toDateTimeString(),
-            'app_timezone' => config('app.timezone'),
-        ]);
-
+        // Deactivate all previous QR codes for this event
         EventQrCode::where('event_id', $event->id)
             ->where('is_active', true)
             ->update(['is_active' => false]);
@@ -202,16 +195,25 @@ class EventQrCodeController extends Controller
             'qr_code_image' => null,
             'qr_code_url' => null,
             'valid_from' => $validFrom,
-            'timeout_minutes' => $validated['timeout_minutes'],
+            'duration_days' => $validated['duration_days'],
             'is_active' => true,
             'created_by' => $request->user()->id,
         ]);
 
-        \App\Models\ActivityLog::log('generate_qr', 'Admin generated a new QR Code for event: ' . $event->event_title);
+        $durationDays = $validated['duration_days'];
+
+        Log::info('QR Generate - Duration days', [
+            'event_id' => $event->id,
+            'duration_days' => $durationDays,
+            'valid_from_wib' => $qrCode->valid_from_wib,
+            'expired_at_wib' => $qrCode->expired_at_wib,
+        ]);
+
+        \App\Models\ActivityLog::log('generate_qr', 'Admin generated a new QR Code for event: ' . $event->event_title . ' (berlaku ' . $durationDays . ' hari)');
 
         return response()->json([
             'success' => true,
-            'message' => 'QR code generated successfully',
+            'message' => "QR code berhasil di-generate, berlaku selama {$durationDays} hari",
             'data' => [
                 'qr_code' => $this->serializeQrCode($qrCode),
             ],
@@ -300,11 +302,14 @@ class EventQrCodeController extends Controller
             'qr_payload' => $qrCode->qr_payload,
             'qr_code_image' => $qrCode->qr_code_image,
             'qr_code_url' => $qrCode->qr_code_url,
+            'duration_days' => $qrCode->duration_days,
             'valid_from' => $qrCode->valid_from,
-            'timeout_minutes' => $qrCode->timeout_minutes,
+            'expired_at' => $qrCode->expired_at,
+            'valid_from_wib' => $qrCode->valid_from_wib,
+            'expired_at_wib' => $qrCode->expired_at_wib,
+            'created_at_wib' => $qrCode->created_at_wib,
             'is_active' => $qrCode->is_active,
             'created_at' => $qrCode->created_at,
-            'expired_at' => $qrCode->expired_at,
             'is_valid_now' => $qrCode->is_valid_now,
             'is_expired' => $qrCode->is_expired,
         ];

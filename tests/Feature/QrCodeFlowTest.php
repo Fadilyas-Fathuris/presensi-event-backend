@@ -27,8 +27,7 @@ class QrCodeFlowTest extends TestCase
         Sanctum::actingAs($admin);
 
         $response = $this->postJson("/api/admin/events/{$event->id}/qr/generate", [
-            'valid_from' => now()->subMinute()->toDateTimeString(),
-            'timeout_minutes' => 60,
+            'duration_days' => 3,
         ]);
 
         $response
@@ -55,7 +54,7 @@ class QrCodeFlowTest extends TestCase
             'event_id' => $event->id,
             'qr_token' => $qrToken,
             'valid_from' => now()->subMinute(),
-            'timeout_minutes' => 60,
+            'duration_days' => 3,
             'is_active' => true,
             'created_by' => $admin->id,
         ]);
@@ -100,7 +99,7 @@ class QrCodeFlowTest extends TestCase
             'event_id' => $event->id,
             'qr_token' => $qrToken,
             'valid_from' => now()->subMinute(),
-            'timeout_minutes' => 60,
+            'duration_days' => 3,
             'is_active' => true,
             'created_by' => $admin->id,
         ]);
