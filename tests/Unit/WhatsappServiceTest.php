@@ -3,7 +3,6 @@
 namespace Tests\Unit;
 
 use App\Services\WhatsappService;
-use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -25,7 +24,7 @@ class WhatsappServiceTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_it_sends_broadcast_to_fonnte_with_expected_payload(): void
+    public function test_it_never_sends_broadcast_to_fonnte_while_automatic_sending_is_disabled(): void
     {
         config([
             'services.fonnte.token' => 'dummy-token',
@@ -45,16 +44,9 @@ class WhatsappServiceTest extends TestCase
             '6289876543210',
         ], 'Halo alumni');
 
-        $this->assertTrue($result['success']);
-        $this->assertSame('success', $result['message']);
-
-        Http::assertSent(function (Request $request) {
-            return $request->url() === 'https://api.fonnte.com/send'
-                && $request->hasHeader('Authorization', 'dummy-token')
-                && $request['target'] === '6281234567890,6289876543210'
-                && $request['message'] === 'Halo alumni'
-                && $request['schedule'] === 0
-                && $request['delay'] === '2';
-        });
+        $this->assertFalse($result['success']);
+        $this->assertSame('WHATSAPP_AUTOMATIC_SEND_DISABLED', $result['code']);
+        $this->assertSame('Pengiriman otomatis WhatsApp sedang dinonaktifkan. Gunakan kirim manual.', $result['message']);
+        Http::assertNothingSent();
     }
 }

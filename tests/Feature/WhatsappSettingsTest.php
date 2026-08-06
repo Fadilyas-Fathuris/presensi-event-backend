@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Models\WhatsappSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
@@ -45,7 +44,7 @@ class WhatsappSettingsTest extends TestCase
             ->assertJsonMissing(['api_token' => 'FONNTE_SECRET_TOKEN']);
     }
 
-    public function test_test_connection_uses_stored_configuration_and_sends_only_to_sender_number(): void
+    public function test_test_connection_is_disabled_and_never_sends_to_fonnte(): void
     {
         Sanctum::actingAs($this->admin());
 
@@ -64,17 +63,14 @@ class WhatsappSettingsTest extends TestCase
         ]);
 
         $this->postJson('/api/settings/whatsapp/test')
-            ->assertOk()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('status', 'connected')
-            ->assertJsonPath('sender_status', 'active');
+            ->assertStatus(503)
+            ->assertExactJson([
+                'success' => false,
+                'code' => 'WHATSAPP_AUTOMATIC_SEND_DISABLED',
+                'message' => 'Pengiriman otomatis WhatsApp sedang dinonaktifkan. Gunakan kirim manual.',
+            ]);
 
-        Http::assertSent(function (Request $request) {
-            return $request->url() === 'https://api.fonnte.com/send'
-                && $request->hasHeader('Authorization', 'stored-token')
-                && $request['target'] === '628123456789'
-                && $request['message'] === 'Test koneksi WhatsApp Broadcast';
-        });
+        Http::assertNothingSent();
     }
 
     public function test_first_configuration_requires_token(): void

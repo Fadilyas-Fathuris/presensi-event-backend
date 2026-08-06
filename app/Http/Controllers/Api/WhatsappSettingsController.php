@@ -245,6 +245,15 @@ class WhatsappSettingsController extends Controller
                 )
             ),
             new OA\Response(
+                response: 503,
+                description: 'WhatsApp automatic sending temporarily disabled',
+                content: new OA\JsonContent(properties: [
+                    new OA\Property(property: 'success', type: 'boolean', example: false),
+                    new OA\Property(property: 'code', type: 'string', example: 'WHATSAPP_AUTOMATIC_SEND_DISABLED'),
+                    new OA\Property(property: 'message', type: 'string', example: 'Pengiriman otomatis WhatsApp sedang dinonaktifkan. Gunakan kirim manual.'),
+                ])
+            ),
+            new OA\Response(
                 response: 422,
                 description: 'Validation error',
                 content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')
@@ -275,6 +284,8 @@ class WhatsappSettingsController extends Controller
             unset($validated['api_token']);
         }
 
+        // WhatsApp automatic sending temporarily disabled — do not remove this code.
+        /*
         $result = $this->whatsapp->testConnection($validated);
 
         if ($setting && ! array_key_exists('api_token', $validated)) {
@@ -285,5 +296,12 @@ class WhatsappSettingsController extends Controller
         unset($result['http_status']);
 
         return response()->json($result, $httpStatus);
+        */
+
+        return response()->json([
+            'success' => false,
+            'code' => 'WHATSAPP_AUTOMATIC_SEND_DISABLED',
+            'message' => 'Pengiriman otomatis WhatsApp sedang dinonaktifkan. Gunakan kirim manual.',
+        ], 503);
     }
 }

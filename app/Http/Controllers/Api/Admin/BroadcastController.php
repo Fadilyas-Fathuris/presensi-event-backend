@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\BroadcastLog;
 use App\Models\Event;
 use App\Models\EventRegistration;
 use App\Models\User;
@@ -87,6 +86,15 @@ class BroadcastController extends Controller
                 )
             ),
             new OA\Response(response: 400, description: 'Broadcast failed atau tidak ada penerima', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(
+                response: 503,
+                description: 'WhatsApp automatic sending temporarily disabled',
+                content: new OA\JsonContent(properties: [
+                    new OA\Property(property: 'success', type: 'boolean', example: false),
+                    new OA\Property(property: 'code', type: 'string', example: 'WHATSAPP_AUTOMATIC_SEND_DISABLED'),
+                    new OA\Property(property: 'message', type: 'string', example: 'Pengiriman otomatis WhatsApp sedang dinonaktifkan. Gunakan kirim manual.'),
+                ])
+            ),
             new OA\Response(response: 404, description: 'Event not found', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
             new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')),
             new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
@@ -157,10 +165,12 @@ class BroadcastController extends Controller
             ], 400);
         }
 
-        // ── Build & kirim pesan ───────────────────────────────────────────────
+        // ── Build pesan ──────────────────────────────────────────────────────
         $message = $validated['custom_message']
             ?? $this->buildMessageByTarget($event, $target);
 
+        // WhatsApp automatic sending temporarily disabled — do not remove this code.
+        /*
         $result = $this->whatsapp->sendBroadcast($numbers, $message);
 
         if (! $result['success']) {
@@ -201,6 +211,13 @@ class BroadcastController extends Controller
                 'sender_status' => $result['sender_status'] ?? null,
             ],
         ]);
+        */
+
+        return response()->json([
+            'success' => false,
+            'code' => 'WHATSAPP_AUTOMATIC_SEND_DISABLED',
+            'message' => 'Pengiriman otomatis WhatsApp sedang dinonaktifkan. Gunakan kirim manual.',
+        ], 503);
     }
 
     #[OA\Get(
@@ -248,6 +265,12 @@ class BroadcastController extends Controller
                                 new OA\Property(property: 'message', type: 'string', example: '🕌 *Presensi Event Alumni Pesantren*...'),
                                 new OA\Property(property: 'target', type: 'string', example: 'registered'),
                                 new OA\Property(property: 'total_targets', type: 'integer', example: 45),
+                                new OA\Property(
+                                    property: 'target_numbers',
+                                    type: 'array',
+                                    items: new OA\Items(type: 'string', example: '6281234567890'),
+                                    description: 'Daftar nomor tujuan yang sudah dinormalisasi untuk kirim manual. Hanya tersedia untuk admin yang terautentikasi.'
+                                ),
                                 new OA\Property(
                                     property: 'breakdown',
                                     type: 'object',
@@ -316,12 +339,42 @@ class BroadcastController extends Controller
             default => $totalAll,
         };
 
+        // Admin membutuhkan nomor yang dinormalisasi ini untuk membuka wa.me satu per satu.
+        // Query dan normalisasi mengikuti aturan target broadcast di atas.
+        $targetNumbers = match ($target) {
+            'registered' => EventRegistration::where('event_id', $event->id)
+                ->with('user:id,phone')
+                ->get()
+                ->pluck('user.phone')
+                ->filter()
+                ->map(fn ($phone) => $this->formatPhoneNumber($phone))
+                ->filter()
+                ->unique()
+                ->values()
+                ->toArray(),
+            'custom' => collect($validated['numbers'] ?? [])
+                ->map(fn ($phone) => $this->formatPhoneNumber($phone))
+                ->filter()
+                ->unique()
+                ->values()
+                ->toArray(),
+            default => User::where('role', 'alumni')
+                ->whereNotNull('phone')
+                ->pluck('phone')
+                ->map(fn ($phone) => $this->formatPhoneNumber($phone))
+                ->filter()
+                ->unique()
+                ->values()
+                ->toArray(),
+        };
+
         return response()->json([
             'success' => true,
             'data' => [
                 'message' => $message,
                 'target' => $target,
                 'total_targets' => $totalTargets,
+                'target_numbers' => $targetNumbers,
                 'breakdown' => [
                     'total_all' => $totalAll,
                     'total_registered' => $totalRegistered,

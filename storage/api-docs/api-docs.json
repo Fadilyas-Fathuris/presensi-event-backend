@@ -1112,6 +1112,30 @@
                             }
                         }
                     },
+                    "503": {
+                        "description": "WhatsApp automatic sending temporarily disabled",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "example": "WHATSAPP_AUTOMATIC_SEND_DISABLED"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Pengiriman otomatis WhatsApp sedang dinonaktifkan. Gunakan kirim manual."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "Event not found",
                         "content": {
@@ -1229,6 +1253,14 @@
                                                 "total_targets": {
                                                     "type": "integer",
                                                     "example": 45
+                                                },
+                                                "target_numbers": {
+                                                    "description": "Daftar nomor tujuan yang sudah dinormalisasi untuk kirim manual. Hanya tersedia untuk admin yang terautentikasi.",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "6281234567890"
+                                                    }
                                                 },
                                                 "breakdown": {
                                                     "properties": {
@@ -2486,9 +2518,9 @@
                                                             "example": null,
                                                             "nullable": true
                                                         },
-                                                        "timeout_minutes": {
+                                                        "duration_days": {
                                                             "type": "integer",
-                                                            "example": 60
+                                                            "example": 3
                                                         },
                                                         "is_active": {
                                                             "type": "boolean",
@@ -2496,11 +2528,15 @@
                                                         },
                                                         "created_at": {
                                                             "type": "string",
-                                                            "example": "2026-05-25T13:56:00.000000Z"
+                                                            "example": "2026-08-04T13:18:00.000000Z"
                                                         },
-                                                        "expired_at": {
+                                                        "valid_from_wib": {
                                                             "type": "string",
-                                                            "example": "2026-05-25T14:56:00.000000Z"
+                                                            "example": "04 Agustus 2026, 13:18 WIB"
+                                                        },
+                                                        "expired_at_wib": {
+                                                            "type": "string",
+                                                            "example": "07 Agustus 2026, 13:18 WIB"
                                                         },
                                                         "is_expired": {
                                                             "type": "boolean",
@@ -2562,7 +2598,7 @@
                     "Admin - Event QR Management"
                 ],
                 "summary": "Generate event QR code",
-                "description": "Generates a new QR code for a specific event. Previous active QR code will be deactivated. Admin only.",
+                "description": "Generates a new QR code for a specific event. QR is immediately active from now and valid for the specified number of days. Previous active QR code will be deactivated. Admin only.",
                 "operationId": "adminGenerateEventQrCode",
                 "parameters": [
                     {
@@ -2581,17 +2617,13 @@
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "valid_from",
-                                    "timeout_minutes"
+                                    "duration_days"
                                 ],
                                 "properties": {
-                                    "valid_from": {
-                                        "type": "string",
-                                        "example": "2026-06-02 03:00:00"
-                                    },
-                                    "timeout_minutes": {
+                                    "duration_days": {
+                                        "description": "Durasi berlaku QR code dalam satuan hari (1-30)",
                                         "type": "integer",
-                                        "example": 60
+                                        "example": 3
                                     }
                                 },
                                 "type": "object"
@@ -2612,7 +2644,7 @@
                                         },
                                         "message": {
                                             "type": "string",
-                                            "example": "QR code generated successfully"
+                                            "example": "QR code berhasil di-generate, berlaku selama 3 hari"
                                         },
                                         "data": {
                                             "properties": {
@@ -2644,25 +2676,25 @@
                                                             "example": null,
                                                             "nullable": true
                                                         },
-                                                        "valid_from": {
-                                                            "type": "string",
-                                                            "example": "2026-05-25T13:56:00.000000Z"
-                                                        },
-                                                        "timeout_minutes": {
+                                                        "duration_days": {
                                                             "type": "integer",
-                                                            "example": 60
+                                                            "example": 3
                                                         },
                                                         "is_active": {
                                                             "type": "boolean",
                                                             "example": true
                                                         },
-                                                        "created_at": {
+                                                        "valid_from_wib": {
                                                             "type": "string",
-                                                            "example": "2026-05-25T13:56:00.000000Z"
+                                                            "example": "04 Agustus 2026, 13:18 WIB"
                                                         },
-                                                        "expired_at": {
+                                                        "expired_at_wib": {
                                                             "type": "string",
-                                                            "example": "2026-05-25T14:56:00.000000Z"
+                                                            "example": "07 Agustus 2026, 13:18 WIB"
+                                                        },
+                                                        "created_at_wib": {
+                                                            "type": "string",
+                                                            "example": "04 Agustus 2026, 13:18 WIB"
                                                         },
                                                         "is_valid_now": {
                                                             "type": "boolean",
@@ -3502,6 +3534,59 @@
                     },
                     "401": {
                         "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/heartbeat": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Keep session alive",
+                "description": "Updates the token last_used_at timestamp. Call periodically to prevent auto-logout while the browser is open.",
+                "operationId": "heartbeat",
+                "responses": {
+                    "200": {
+                        "description": "Heartbeat acknowledged",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "token_expires_in": {
+                                                    "description": "Remaining minutes until token expires",
+                                                    "type": "integer",
+                                                    "example": 115
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Token expired or invalid",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -5139,6 +5224,30 @@
                                         "detail": {
                                             "type": "object",
                                             "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "WhatsApp automatic sending temporarily disabled",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "example": "WHATSAPP_AUTOMATIC_SEND_DISABLED"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Pengiriman otomatis WhatsApp sedang dinonaktifkan. Gunakan kirim manual."
                                         }
                                     },
                                     "type": "object"

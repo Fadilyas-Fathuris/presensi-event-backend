@@ -4,10 +4,8 @@ namespace App\Services;
 
 use App\Models\Event;
 use App\Models\WhatsappSetting;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
@@ -62,6 +60,8 @@ class WhatsappService
         // Fonnte accepts target as a comma-separated string.
         $targets = implode(',', array_values(array_unique($numbers)));
 
+        // WhatsApp automatic sending temporarily disabled — do not remove this code.
+        /*
         try {
             $response = Http::withHeaders([
                 'Authorization' => $config['api_token'],
@@ -119,6 +119,9 @@ class WhatsappService
                 'sender_status' => 'error',
             ];
         }
+        */
+
+        return $this->automaticSendingDisabledResponse();
     }
 
     public function testConnection(array $overrides = []): array
@@ -150,6 +153,8 @@ class WhatsappService
             ];
         }
 
+        // WhatsApp automatic sending temporarily disabled — do not remove this code.
+        /*
         try {
             $response = Http::withHeaders([
                 'Authorization' => $config['api_token'],
@@ -211,6 +216,9 @@ class WhatsappService
                 'fonnte' => [],
             ];
         }
+        */
+
+        return $this->automaticSendingDisabledResponse($config['sender_number'] ?? null);
     }
 
     public function configuration(array $overrides = []): array
@@ -225,6 +233,19 @@ class WhatsappService
             'sender_status' => $setting?->sender_status ?? 'unknown',
             'blocked_reason' => $setting?->blocked_reason,
         ], Arr::whereNotNull($overrides));
+    }
+
+    private function automaticSendingDisabledResponse(?string $senderNumber = null): array
+    {
+        return [
+            'success' => false,
+            'code' => 'WHATSAPP_AUTOMATIC_SEND_DISABLED',
+            'message' => 'Pengiriman otomatis WhatsApp sedang dinonaktifkan. Gunakan kirim manual.',
+            'sender_number' => $senderNumber,
+            'sender_status' => 'disabled',
+            'http_status' => 503,
+            'fonnte' => [],
+        ];
     }
 
     public static function maskToken(?string $token): ?string
