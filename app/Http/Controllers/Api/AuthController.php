@@ -155,6 +155,15 @@ class AuthController extends Controller
             ], 401);
         }
 
+        if ($user->role === 'admin' && ($user->status ?? 'active') !== 'active') {
+            $user->tokens()->delete();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Akun admin sedang dinonaktifkan. Hubungi super admin.',
+            ], 403);
+        }
+
         if ($user->role !== 'admin') {
             $statusMessage = match ($user->status) {
                 'active' => null,

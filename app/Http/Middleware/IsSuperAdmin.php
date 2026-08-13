@@ -6,23 +6,23 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class IsAdmin
+class IsSuperAdmin
 {
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
 
-        if (! $user || ! $user->isAdmin()) {
+        if (! $user || ! $user->isSuperAdmin()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Forbidden. Admin access only.',
+                'message' => 'Forbidden. Super admin access only.',
             ], 403);
         }
 
         if (($user->status ?? 'active') !== 'active') {
             return response()->json([
                 'success' => false,
-                'message' => 'Akun admin sedang tidak aktif.',
+                'message' => 'Akun super admin sedang tidak aktif.',
             ], 403);
         }
 

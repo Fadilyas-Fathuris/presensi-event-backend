@@ -20,6 +20,7 @@ class AdminSeeder extends Seeder
                 'phone' => '081234567890',
                 'gender' => 'Laki-laki',
                 'role' => 'admin',
+                'admin_level' => 'super_admin',
                 'status' => 'active',
             ]
         );

@@ -25,6 +25,7 @@ class User extends Authenticatable
         'birth_date',
         'avatar_url',
         'role',
+        'admin_level',
         'status',
     ];
 
@@ -42,6 +43,21 @@ class User extends Authenticatable
     public function alumniNotifications(): HasMany
     {
         return $this->hasMany(AlumniNotification::class);
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === 'admin' && $this->admin_level === 'super_admin';
+    }
+
+    public function isRegularAdmin(): bool
+    {
+        return $this->role === 'admin' && $this->admin_level === 'admin';
     }
 
     public function sendPasswordResetNotification($token): void

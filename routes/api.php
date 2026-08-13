@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\AdminController;
+use App\Http\Controllers\Api\Admin\AdminAccountController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\EventCategoryController;
 use App\Http\Controllers\Api\Admin\EventController;
@@ -48,6 +49,16 @@ Route::prefix('admin')
     ->middleware(['auth:sanctum', 'is_admin'])
     ->group(function () {
         Route::put('/change-password', [AdminProfileController::class, 'changePassword']);
+
+        // Admin account management
+        Route::middleware('is_super_admin')->group(function () {
+            Route::get('/admins', [AdminAccountController::class, 'index']);
+            Route::post('/admins', [AdminAccountController::class, 'store']);
+            Route::get('/admins/{id}', [AdminAccountController::class, 'show']);
+            Route::put('/admins/{id}', [AdminAccountController::class, 'update']);
+            Route::patch('/admins/{id}/status', [AdminAccountController::class, 'updateStatus']);
+            Route::delete('/admins/{id}', [AdminAccountController::class, 'destroy']);
+        });
 
         // Dashboard
         Route::get('/dashboard/attendance-chart', [DashboardController::class, 'attendanceChart']);

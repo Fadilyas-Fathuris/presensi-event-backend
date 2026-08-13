@@ -43,7 +43,7 @@ class UserApprovalTest extends TestCase
     public function test_active_alumni_and_admin_can_login(): void
     {
         $activeAlumni = $this->createUser('active@example.com', 'alumni', 'active');
-        $inactiveAdmin = $this->createUser('admin@example.com', 'admin', 'inactive');
+        $activeAdmin = $this->createUser('admin@example.com', 'admin', 'active');
 
         $this->postJson('/api/auth/login', [
             'email' => $activeAlumni->email,
@@ -55,7 +55,7 @@ class UserApprovalTest extends TestCase
             ->assertJsonPath('data.token_type', 'Bearer');
 
         $this->postJson('/api/auth/login', [
-            'email' => $inactiveAdmin->email,
+            'email' => $activeAdmin->email,
             'password' => 'password123',
         ])
             ->assertOk()

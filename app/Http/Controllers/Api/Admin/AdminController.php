@@ -233,25 +233,45 @@ class AdminController extends Controller
     public function createUser(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-            'phone'    => 'nullable|string|max:20',
-            'angkatan' => 'nullable|string|max:10',
+            'first_name' => ['required_without:name', 'string', 'max:255'],
+            'last_name' => ['nullable', 'string', 'max:255'],
+            'name' => ['required_without:first_name', 'string', 'max:255'],
+            'gender' => ['required', Rule::in(['Laki-laki', 'Perempuan'])],
+            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'graduation_year' => ['nullable', 'digits:4', 'integer', 'min:1950', 'max:' . date('Y')],
+            'angkatan' => ['nullable', 'digits:4', 'integer', 'min:1950', 'max:' . date('Y')],
+            'birth_date' => ['nullable', 'date', 'before_or_equal:today'],
+            'status' => ['nullable', Rule::in(['pending', 'active', 'inactive', 'rejected'])],
+            'role' => ['prohibited'],
+            'admin_level' => ['prohibited'],
         ]);
 
+        [$firstName, $lastName] = $this->resolveNameParts($validated);
+
         $user = User::create([
-            'name'     => $validated['name'],
-            'email'    => $validated['email'],
+            'first_name' => $firstName,
+            'last_name' => $lastName,
+            'gender' => $validated['gender'],
+            'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'phone'    => $validated['phone']    ?? null,
-            'angkatan' => $validated['angkatan'] ?? null,
-            'role'     => 'alumni',
+            'phone' => $validated['phone'] ?? null,
+            'graduation_year' => $validated['graduation_year'] ?? $validated['angkatan'] ?? null,
+            'birth_date' => $validated['birth_date'] ?? null,
+            'role' => 'alumni',
+            'admin_level' => null,
+            'status' => $validated['status'] ?? 'active',
         ]);
+
+        \App\Models\ActivityLog::log(
+            'create_alumni_by_admin',
+            "Admin created alumni account for {$user->email}"
+        );
 
         return response()->json([
             'success' => true,
-            'message' => 'User created successfully',
+            'message' => 'User berhasil dibuat',
             'data'    => ['user' => $user],
         ], 201);
     }
@@ -332,23 +352,53 @@ class AdminController extends Controller
         }
 
         $validated = $request->validate([
-            'name'     => 'sometimes|string|max:255',
-            'email'    => ['sometimes', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'password' => 'sometimes|string|min:8|confirmed',
-            'phone'    => 'nullable|string|max:20',
-            'angkatan' => 'nullable|string|max:10',
+            'first_name' => ['sometimes', 'string', 'max:255'],
+            'last_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'name' => ['sometimes', 'string', 'max:255'],
+            'gender' => ['sometimes', Rule::in(['Laki-laki', 'Perempuan'])],
+            'email' => ['sometimes', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
+            'password' => ['sometimes', 'string', 'min:8', 'confirmed'],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'graduation_year' => ['sometimes', 'nullable', 'digits:4', 'integer', 'min:1950', 'max:' . date('Y')],
+            'angkatan' => ['sometimes', 'nullable', 'digits:4', 'integer', 'min:1950', 'max:' . date('Y')],
+            'birth_date' => ['sometimes', 'nullable', 'date', 'before_or_equal:today'],
+            'status' => ['sometimes', Rule::in(['pending', 'active', 'inactive', 'rejected'])],
+            'role' => ['prohibited'],
+            'admin_level' => ['prohibited'],
         ]);
 
-        if (isset($validated['password'])) {
-            $validated['password'] = Hash::make($validated['password']);
-            $validated['password_changed_at'] = now();
+        $payload = $validated;
+        unset($payload['name'], $payload['angkatan']);
+
+        if (isset($validated['name']) && ! isset($validated['first_name'])) {
+            [$firstName, $lastName] = $this->resolveNameParts($validated);
+            $payload['first_name'] = $firstName;
+            $payload['last_name'] = $lastName;
         }
 
-        $user->update($validated);
+        if (isset($validated['angkatan']) && ! isset($validated['graduation_year'])) {
+            $payload['graduation_year'] = $validated['angkatan'];
+        }
+
+        if (isset($payload['password'])) {
+            $payload['password'] = Hash::make($payload['password']);
+            $payload['password_changed_at'] = now();
+        }
+
+        $user->update($payload);
+
+        if (in_array($payload['status'] ?? null, ['pending', 'inactive', 'rejected'], true)) {
+            $user->tokens()->delete();
+        }
+
+        \App\Models\ActivityLog::log(
+            'update_alumni_by_admin',
+            "Admin updated alumni account for {$user->email}"
+        );
 
         return response()->json([
             'success' => true,
-            'message' => 'User updated successfully',
+            'message' => 'User berhasil diperbarui',
             'data'    => ['user' => $user->fresh()],
         ]);
     }
@@ -693,9 +743,14 @@ class AdminController extends Controller
         $user->tokens()->delete();
         $user->delete();
 
+        \App\Models\ActivityLog::log(
+            'delete_alumni_by_admin',
+            "Admin deleted alumni account for {$user->email}"
+        );
+
         return response()->json([
             'success' => true,
-            'message' => 'User deleted successfully',
+            'message' => 'User berhasil dihapus',
         ]);
     }
 
@@ -762,5 +817,22 @@ class AdminController extends Controller
             'success' => true,
             'data'    => $logs,
         ]);
+    }
+
+    private function resolveNameParts(array $validated): array
+    {
+        if (! empty($validated['first_name'])) {
+            return [
+                $validated['first_name'],
+                $validated['last_name'] ?? null,
+            ];
+        }
+
+        $parts = preg_split('/\s+/', trim($validated['name']), 2);
+
+        return [
+            $parts[0],
+            $parts[1] ?? ($validated['last_name'] ?? null),
+        ];
     }
 }

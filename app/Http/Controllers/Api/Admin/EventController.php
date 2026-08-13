@@ -325,10 +325,14 @@ class EventController extends Controller
 
         \App\Models\ActivityLog::log('update_event', 'Admin updated event: ' . $event->event_title);
 
+        $updatedEvent = $event->fresh()
+            ->load(['category', 'createdBy'])
+            ->loadCount(['registrations', 'presensis']);
+
         return response()->json([
             'success' => true,
             'message' => 'Event updated successfully',
-            'data' => ['event' => $event->fresh()->load(['category', 'createdBy'])->loadCount(['registrations', 'presensis'])],
+            'data' => ['event' => $this->formatEventMeta($updatedEvent)],
         ]);
     }
 
@@ -666,8 +670,8 @@ class EventController extends Controller
             'id' => $event->id,
             'event_title' => $event->event_title,
             'event_date' => $event->event_date,
-            'start_time' => $event->start_time,
-            'end_time' => $event->end_time,
+            'start_time' => $this->formatTimeForResponse($event->start_time),
+            'end_time' => $this->formatTimeForResponse($event->end_time),
             'location' => $event->location,
             'status_event' => $event->status_event,
             'quota' => $event->quota,
@@ -726,6 +730,11 @@ class EventController extends Controller
                 $field => ['The ' . str_replace('_', ' ', $field) . ' field must be a valid time.'],
             ]);
         }
+    }
+
+    private function formatTimeForResponse(?string $time): ?string
+    {
+        return $time ? Carbon::parse($time)->format('H:i') : null;
     }
 
     private function ensureEndTimeAfterStartTime(?string $startTime, ?string $endTime): void
