@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\AlumniNotificationController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PresensiController;
+use App\Http\Controllers\Api\RegionController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\UserManagementController;
 use App\Http\Controllers\Api\WhatsappSettingsController;
@@ -37,6 +38,14 @@ Route::prefix('auth')->group(function () {
 });
 
 // ── User Management (Frontend compatibility)
+Route::prefix('regions')->group(function () {
+    Route::get('/provinces', [RegionController::class, 'provinces']);
+    Route::get('/cities', [RegionController::class, 'cities']);
+    Route::get('/districts', [RegionController::class, 'districts']);
+    Route::get('/villages', [RegionController::class, 'villages']);
+    Route::get('/search', [RegionController::class, 'search']);
+});
+
 Route::middleware(['auth:sanctum', 'is_admin'])->group(function () {
     Route::get('/users',         [UserManagementController::class, 'index']);
     Route::put('/users/{id}',    [UserManagementController::class, 'update']);

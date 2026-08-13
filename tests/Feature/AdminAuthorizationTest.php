@@ -167,7 +167,7 @@ class AdminAuthorizationTest extends TestCase
             ->assertJsonPath('message', 'User berhasil dibuat')
             ->assertJsonPath('data.user.first_name', 'Ahmad')
             ->assertJsonPath('data.user.last_name', 'Fauzi')
-            ->assertJsonPath('data.user.graduation_year', 2018)
+            ->assertJsonPath('data.user.graduation_year', '2018')
             ->assertJsonPath('data.user.role', 'alumni')
             ->assertJsonPath('data.user.admin_level', null);
 

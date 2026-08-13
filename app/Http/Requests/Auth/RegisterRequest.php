@@ -26,6 +26,12 @@ class RegisterRequest extends FormRequest
             'birth_date'       => 'required|date|before_or_equal:today',
             'password'         => 'required|string|min:8',
             'password_confirmation' => 'required|string|same:password',
+            'domicile_province_code' => 'nullable|string|max:20',
+            'domicile_city_code' => 'nullable|string|max:20',
+            'domicile_district_code' => 'nullable|string|max:20',
+            'domicile_village_code' => 'nullable|string|max:20',
+            'domicile_postal_code' => 'nullable|string|max:10',
+            'domicile_address' => 'nullable|string|max:1000',
         ];
     }
 

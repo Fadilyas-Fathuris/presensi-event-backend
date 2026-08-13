@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Resources\UserResource;
 use App\Models\AlumniNotification;
 use App\Models\User;
+use App\Services\DomicileResolver;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
@@ -70,26 +73,36 @@ class AuthController extends Controller
             ),
         ]
     )]
-    public function register(RegisterRequest $request): JsonResponse
+    public function register(RegisterRequest $request, DomicileResolver $domicileResolver): JsonResponse
     {
-        $user = User::create([
-            'first_name'      => $request->first_name,
-            'last_name'       => $request->last_name,
-            'gender'          => $request->gender,
-            'email'           => $request->email,
-            'password'        => Hash::make($request->password),
-            'phone'           => $request->phone,
-            'graduation_year' => $request->graduation_year,
-            'birth_date'      => $request->birth_date,
-            'role'            => 'alumni',
-            'status'          => 'pending',
-        ]);
+        $domicile = $domicileResolver->resolve($request->all());
+
+        $user = DB::transaction(function () use ($request, $domicile): User {
+            $user = User::create([
+                'first_name'      => $request->first_name,
+                'last_name'       => $request->last_name,
+                'gender'          => $request->gender,
+                'email'           => $request->email,
+                'password'        => Hash::make($request->password),
+                'phone'           => $request->phone,
+                'graduation_year' => $request->graduation_year,
+                'birth_date'      => $request->birth_date,
+                'role'            => 'alumni',
+                'status'          => 'pending',
+            ]);
+
+            if ($domicile !== null) {
+                $user->domicile()->create($domicile);
+            }
+
+            return $user->fresh('domicile');
+        });
 
         return response()->json([
             'success' => true,
             'message' => 'Registrasi berhasil. Akun Anda menunggu persetujuan admin.',
             'data'    => [
-                'user'         => $user,
+                'user'         => new UserResource($user),
                 'access_token' => null,
                 'token_type'   => null,
             ],
@@ -146,7 +159,7 @@ class AuthController extends Controller
     )]
     public function login(LoginRequest $request): JsonResponse
     {
-        $user = User::where('email', $request->email)->first();
+        $user = User::with('domicile')->where('email', $request->email)->first();
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json([
@@ -196,7 +209,7 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Login successful',
             'data'    => [
-                'user'             => $user,
+                'user'             => new UserResource($user),
                 'access_token'     => $token,
                 'token_type'       => 'Bearer',
                 'token_expires_in' => (int) config('sanctum.expiration', 120),
@@ -460,7 +473,7 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'data'    => [
-                'user' => $request->user(),
+                'user' => new UserResource($request->user()->load('domicile')),
             ],
         ]);
     }
@@ -511,7 +524,7 @@ class AuthController extends Controller
             new OA\Response(response: 422, description: 'Validation error',  content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')),
         ]
     )]
-    public function updateProfile(Request $request): JsonResponse
+    public function updateProfile(Request $request, DomicileResolver $domicileResolver): JsonResponse
     {
         $user = $request->user();
 
@@ -522,14 +535,41 @@ class AuthController extends Controller
             'phone'           => ['sometimes', 'string', 'max:20'],
             'graduation_year' => ['sometimes', 'digits:4', 'integer', 'min:1950', 'max:' . date('Y')],
             'birth_date'      => ['sometimes', 'date', 'before:today'],
+            'domicile_province_code' => ['nullable', 'string', 'max:20'],
+            'domicile_city_code' => ['nullable', 'string', 'max:20'],
+            'domicile_district_code' => ['nullable', 'string', 'max:20'],
+            'domicile_village_code' => ['nullable', 'string', 'max:20'],
+            'domicile_postal_code' => ['nullable', 'string', 'max:10'],
+            'domicile_address' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $user->update($validated);
+        $domicile = $domicileResolver->resolve($validated);
+        $profilePayload = collect($validated)
+            ->except([
+                'domicile_province_code',
+                'domicile_city_code',
+                'domicile_district_code',
+                'domicile_village_code',
+                'domicile_postal_code',
+                'domicile_address',
+            ])
+            ->all();
+
+        DB::transaction(function () use ($user, $profilePayload, $domicile): void {
+            $user->update($profilePayload);
+
+            if ($domicile !== null) {
+                $user->domicile()->updateOrCreate(
+                    ['user_id' => $user->id],
+                    $domicile
+                );
+            }
+        });
 
         return response()->json([
             'success' => true,
             'message' => 'Profile updated successfully',
-            'data'    => ['user' => $user->fresh()],
+            'data'    => ['user' => new UserResource($user->fresh('domicile'))],
         ]);
     }
 

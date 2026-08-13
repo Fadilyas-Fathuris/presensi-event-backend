@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Services\DomicileResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -84,10 +86,14 @@ class AdminController extends Controller
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', Rule::in(['pending', 'active', 'inactive', 'rejected'])],
+            'domicile_province_code' => ['nullable', 'string', 'max:20'],
+            'domicile_city_code' => ['nullable', 'string', 'max:20'],
+            'domicile_district_code' => ['nullable', 'string', 'max:20'],
+            'domicile_village_code' => ['nullable', 'string', 'max:20'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
-        $query = User::where('role', 'alumni');
+        $query = User::with('domicile')->where('role', 'alumni');
 
         if (! empty($filters['search'])) {
             $search = $filters['search'];
@@ -103,13 +109,26 @@ class AdminController extends Controller
             $query->where('status', $filters['status']);
         }
 
+        foreach ([
+            'domicile_province_code' => 'province_code',
+            'domicile_city_code' => 'city_code',
+            'domicile_district_code' => 'district_code',
+            'domicile_village_code' => 'village_code',
+        ] as $filter => $column) {
+            if (! empty($filters[$filter])) {
+                $query->whereHas('domicile', fn ($q) => $q->where($column, $filters[$filter]));
+            }
+        }
+
         $perPage = $filters['per_page'] ?? 10;
         $users   = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         return response()->json([
             'success' => true,
             'data'    => [
-                'users'        => $users->items(),
+                'users'        => collect($users->items())
+                    ->map(fn (User $user) => (new UserResource($user))->resolve())
+                    ->all(),
                 'total'        => $users->total(),
                 'current_page' => $users->currentPage(),
                 'last_page'    => $users->lastPage(),
@@ -164,7 +183,7 @@ class AdminController extends Controller
     )]
     public function getUser(int $id): JsonResponse
     {
-        $user = User::where('role', 'alumni')->find($id);
+        $user = User::with('domicile')->where('role', 'alumni')->find($id);
 
         if (! $user) {
             return response()->json([
@@ -175,7 +194,7 @@ class AdminController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => ['user' => $user],
+            'data'    => ['user' => new UserResource($user)],
         ]);
     }
 
@@ -230,7 +249,7 @@ class AdminController extends Controller
             ),
         ]
     )]
-    public function createUser(Request $request): JsonResponse
+    public function createUser(Request $request, DomicileResolver $domicileResolver): JsonResponse
     {
         $validated = $request->validate([
             'first_name' => ['required_without:name', 'string', 'max:255'],
@@ -246,23 +265,38 @@ class AdminController extends Controller
             'status' => ['nullable', Rule::in(['pending', 'active', 'inactive', 'rejected'])],
             'role' => ['prohibited'],
             'admin_level' => ['prohibited'],
+            'domicile_province_code' => ['nullable', 'string', 'max:20'],
+            'domicile_city_code' => ['nullable', 'string', 'max:20'],
+            'domicile_district_code' => ['nullable', 'string', 'max:20'],
+            'domicile_village_code' => ['nullable', 'string', 'max:20'],
+            'domicile_postal_code' => ['nullable', 'string', 'max:10'],
+            'domicile_address' => ['nullable', 'string', 'max:1000'],
         ]);
 
         [$firstName, $lastName] = $this->resolveNameParts($validated);
+        $domicile = $domicileResolver->resolve($validated);
 
-        $user = User::create([
-            'first_name' => $firstName,
-            'last_name' => $lastName,
-            'gender' => $validated['gender'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'phone' => $validated['phone'] ?? null,
-            'graduation_year' => $validated['graduation_year'] ?? $validated['angkatan'] ?? null,
-            'birth_date' => $validated['birth_date'] ?? null,
-            'role' => 'alumni',
-            'admin_level' => null,
-            'status' => $validated['status'] ?? 'active',
-        ]);
+        $user = DB::transaction(function () use ($validated, $firstName, $lastName, $domicile): User {
+            $user = User::create([
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'gender' => $validated['gender'],
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'phone' => $validated['phone'] ?? null,
+                'graduation_year' => $validated['graduation_year'] ?? $validated['angkatan'] ?? null,
+                'birth_date' => $validated['birth_date'] ?? null,
+                'role' => 'alumni',
+                'admin_level' => null,
+                'status' => $validated['status'] ?? 'active',
+            ]);
+
+            if ($domicile !== null) {
+                $user->domicile()->create($domicile);
+            }
+
+            return $user->fresh('domicile');
+        });
 
         \App\Models\ActivityLog::log(
             'create_alumni_by_admin',
@@ -272,7 +306,7 @@ class AdminController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'User berhasil dibuat',
-            'data'    => ['user' => $user],
+            'data'    => ['user' => new UserResource($user)],
         ], 201);
     }
 
@@ -340,7 +374,7 @@ class AdminController extends Controller
             ),
         ]
     )]
-    public function updateUser(Request $request, int $id): JsonResponse
+    public function updateUser(Request $request, int $id, DomicileResolver $domicileResolver): JsonResponse
     {
         $user = User::where('role', 'alumni')->find($id);
 
@@ -365,10 +399,28 @@ class AdminController extends Controller
             'status' => ['sometimes', Rule::in(['pending', 'active', 'inactive', 'rejected'])],
             'role' => ['prohibited'],
             'admin_level' => ['prohibited'],
+            'domicile_province_code' => ['nullable', 'string', 'max:20'],
+            'domicile_city_code' => ['nullable', 'string', 'max:20'],
+            'domicile_district_code' => ['nullable', 'string', 'max:20'],
+            'domicile_village_code' => ['nullable', 'string', 'max:20'],
+            'domicile_postal_code' => ['nullable', 'string', 'max:10'],
+            'domicile_address' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $payload = $validated;
-        unset($payload['name'], $payload['angkatan']);
+        $domicile = $domicileResolver->resolve($validated);
+
+        $payload = collect($validated)
+            ->except([
+                'name',
+                'angkatan',
+                'domicile_province_code',
+                'domicile_city_code',
+                'domicile_district_code',
+                'domicile_village_code',
+                'domicile_postal_code',
+                'domicile_address',
+            ])
+            ->all();
 
         if (isset($validated['name']) && ! isset($validated['first_name'])) {
             [$firstName, $lastName] = $this->resolveNameParts($validated);
@@ -385,7 +437,16 @@ class AdminController extends Controller
             $payload['password_changed_at'] = now();
         }
 
-        $user->update($payload);
+        DB::transaction(function () use ($user, $payload, $domicile): void {
+            $user->update($payload);
+
+            if ($domicile !== null) {
+                $user->domicile()->updateOrCreate(
+                    ['user_id' => $user->id],
+                    $domicile
+                );
+            }
+        });
 
         if (in_array($payload['status'] ?? null, ['pending', 'inactive', 'rejected'], true)) {
             $user->tokens()->delete();
@@ -399,7 +460,7 @@ class AdminController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'User berhasil diperbarui',
-            'data'    => ['user' => $user->fresh()],
+            'data'    => ['user' => new UserResource($user->fresh('domicile'))],
         ]);
     }
 
