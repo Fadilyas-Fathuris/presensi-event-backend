@@ -46,6 +46,16 @@ class User extends Authenticatable
         return $this->hasMany(AlumniNotification::class);
     }
 
+    public function presensis(): HasMany
+    {
+        return $this->hasMany(Presensi::class);
+    }
+
+    public function eventRegistrations(): HasMany
+    {
+        return $this->hasMany(EventRegistration::class);
+    }
+
     public function domicile(): HasOne
     {
         return $this->hasOne(UserDomicile::class);

@@ -6,9 +6,11 @@ use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\EventCategoryController;
 use App\Http\Controllers\Api\Admin\EventController;
 use App\Http\Controllers\Api\Admin\EventQrCodeController;
+use App\Http\Controllers\Api\Admin\EngagementController;
 use App\Http\Controllers\Api\Admin\BroadcastController;
 use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\AlumniNotificationController;
+use App\Http\Controllers\Api\AlumniEngagementController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PresensiController;
 use App\Http\Controllers\Api\RegionController;
@@ -51,6 +53,7 @@ Route::middleware(['auth:sanctum', 'is_admin'])->group(function () {
     Route::put('/users/{id}',    [UserManagementController::class, 'update']);
     Route::patch('/users/{id}',  [UserManagementController::class, 'update']);
     Route::delete('/users/{id}', [UserManagementController::class, 'destroy']);
+    Route::get('/presences',     [PresensiController::class, 'adminUserHistory']);
 });
 
 // ── Admin
@@ -106,6 +109,9 @@ Route::prefix('admin')
 
         // Activity logs
         Route::get('/activity-logs', [AdminController::class, 'getActivityLogs']);
+
+        // Engagement mapping
+        Route::get('/engagement/attendance-mapping', [EngagementController::class, 'attendanceMapping']);
     });
 
 // ── Settings
@@ -126,6 +132,7 @@ Route::middleware(['auth:sanctum', 'is_alumni'])->group(function () {
     Route::put('/alumni/notifications/{id}/read', [AlumniNotificationController::class, 'markAsRead']);
 
     Route::get('/alumni/recommendations', [EventRecommendationController::class, 'index']);
+    Route::get('/alumni/engagement/summary', [AlumniEngagementController::class, 'summary']);
 });
 
 // ── Events & Registration (Alumni) 

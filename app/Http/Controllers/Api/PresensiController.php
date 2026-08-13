@@ -283,4 +283,33 @@ class PresensiController extends Controller
             ],
         ]);
     }
+
+    public function adminUserHistory(Request $request): JsonResponse
+    {
+        $userId = $request->query('user_id');
+
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User ID wajib diisi',
+            ], 422);
+        }
+
+        $perPage = $request->get('per_page', 100);
+
+        $history = Presensi::where('user_id', $userId)
+            ->with('event:id,event_title,location,event_date,start_time,end_time,status_event')
+            ->orderBy('scanned_at', 'desc')
+            ->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'history'      => $history->items(),
+                'total'        => $history->total(),
+                'current_page' => $history->currentPage(),
+                'last_page'    => $history->lastPage(),
+            ],
+        ]);
+    }
 }
