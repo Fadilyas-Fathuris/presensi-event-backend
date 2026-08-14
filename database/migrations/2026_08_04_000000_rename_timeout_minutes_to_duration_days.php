@@ -26,9 +26,16 @@ return new class extends Migration
         });
 
         // Convert existing minute values to days (ceiling, min 1)
-        DB::table('event_qr_codes')->update([
-            'duration_days' => DB::raw('GREATEST(CEIL(duration_days / 1440), 1)'),
-        ]);
+        if (DB::getDriverName() === 'sqlite') {
+            DB::table('event_qr_codes')->get()->each(function ($record) {
+                $days = max((int) ceil(($record->duration_days ?? 0) / 1440), 1);
+                DB::table('event_qr_codes')->where('id', $record->id)->update(['duration_days' => $days]);
+            });
+        } else {
+            DB::table('event_qr_codes')->update([
+                'duration_days' => DB::raw('GREATEST(CEIL(duration_days / 1440), 1)'),
+            ]);
+        }
 
         // Auto-fill valid_from with created_at for rows that already have valid_from
         // (no change needed, valid_from is already populated)

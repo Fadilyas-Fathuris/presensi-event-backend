@@ -235,4 +235,52 @@ class UserManagementTest extends TestCase
             'role' => 'admin',
         ]);
     }
+
+    public function test_admin_can_filter_and_sort_users_serverside(): void
+    {
+        User::query()->create([
+            'first_name' => 'Budi',
+            'last_name' => 'Santoso',
+            'gender' => 'Laki-laki',
+            'email' => 'budi@example.com',
+            'password' => 'password',
+            'graduation_year' => '2020',
+            'role' => 'alumni',
+            'status' => 'active',
+        ]);
+
+        User::query()->create([
+            'first_name' => 'Andi',
+            'last_name' => 'Wijaya',
+            'gender' => 'Laki-laki',
+            'email' => 'andi@example.com',
+            'password' => 'password',
+            'graduation_year' => '2021',
+            'role' => 'alumni',
+            'status' => 'pending',
+        ]);
+
+        // 1. Search filter
+        $this->getJson('/api/admin/users?search=Budi')
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.users.0.email', 'budi@example.com');
+
+        // 2. Status filter
+        $this->getJson('/api/admin/users?status=pending')
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.users.0.email', 'andi@example.com');
+
+        // 3. Graduation year filter
+        $this->getJson('/api/admin/users?graduation_year=2020')
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.users.0.email', 'budi@example.com');
+
+        // 4. Server side sorting by name asc
+        $this->getJson('/api/admin/users?sort_by=name&sort_dir=asc')
+            ->assertOk()
+            ->assertJsonPath('data.users.0.email', 'andi@example.com');
+    }
 }

@@ -86,12 +86,23 @@ class AdminController extends Controller
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', Rule::in(['pending', 'active', 'inactive', 'rejected'])],
+            'graduation_year' => ['nullable', 'string', 'max:10'],
+            'angkatan' => ['nullable', 'string', 'max:10'],
+            'year' => ['nullable', 'integer', 'min:1950', 'max:2100'],
+            'event_id' => ['nullable', 'integer', 'exists:events,id'],
             'domicile_province_code' => ['nullable', 'string', 'max:20'],
             'domicile_city_code' => ['nullable', 'string', 'max:20'],
             'domicile_district_code' => ['nullable', 'string', 'max:20'],
             'domicile_village_code' => ['nullable', 'string', 'max:20'],
+            'sort_by' => ['nullable', 'string', Rule::in(['name', 'first_name', 'last_name', 'email', 'phone', 'graduation_year', 'angkatan', 'role', 'status', 'created_at'])],
+            'sort_dir' => ['nullable', 'string', Rule::in(['asc', 'desc', 'ASC', 'DESC'])],
+            'order' => ['nullable', 'string', Rule::in(['asc', 'desc', 'ASC', 'DESC'])],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
         ]);
+
+        $graduationYear = $filters['graduation_year'] ?? $filters['angkatan'] ?? null;
+        $sortDir = strtolower($filters['sort_dir'] ?? $filters['order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
         $query = User::with('domicile')->where('role', 'alumni');
 
@@ -101,12 +112,26 @@ class AdminController extends Controller
                 $q->where('first_name', 'like', "%{$search}%")
                   ->orWhere('last_name', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%")
                   ->orWhere('graduation_year', 'like', "%{$search}%");
             });
         }
 
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
+        }
+
+        if (! empty($graduationYear)) {
+            $query->where('graduation_year', $graduationYear);
+        }
+
+        if (! empty($filters['year'])) {
+            $query->whereYear('created_at', $filters['year']);
+        }
+
+        if (! empty($filters['event_id'])) {
+            $eventId = $filters['event_id'];
+            $query->whereHas('eventRegistrations', fn ($q) => $q->where('event_id', $eventId));
         }
 
         foreach ([
@@ -120,8 +145,30 @@ class AdminController extends Controller
             }
         }
 
+        $allowedSorts = [
+            'name' => 'first_name',
+            'first_name' => 'first_name',
+            'last_name' => 'last_name',
+            'email' => 'email',
+            'phone' => 'phone',
+            'graduation_year' => 'graduation_year',
+            'angkatan' => 'graduation_year',
+            'role' => 'role',
+            'status' => 'status',
+            'created_at' => 'created_at',
+        ];
+        $sortBy = $filters['sort_by'] ?? 'created_at';
+        $sortColumn = $allowedSorts[$sortBy] ?? 'created_at';
+
         $perPage = $filters['per_page'] ?? 10;
-        $users   = $query->orderBy('created_at', 'desc')->paginate($perPage);
+
+        if ($sortBy === 'name') {
+            $query->orderBy('first_name', $sortDir)->orderBy('last_name', $sortDir);
+        } else {
+            $query->orderBy($sortColumn, $sortDir);
+        }
+
+        $users = $query->orderBy('id', 'desc')->paginate($perPage);
 
         return response()->json([
             'success' => true,

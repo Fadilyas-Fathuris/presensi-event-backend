@@ -470,7 +470,18 @@ class EventController extends Controller
     public function attendances(Request $request, int $id): JsonResponse
     {
         $filters = $request->validate([
+            'search' => 'nullable|string|max:255',
+            'graduation_year' => 'nullable|string|max:10',
+            'angkatan' => 'nullable|string|max:10',
+            'domicile_province_code' => 'nullable|string|max:20',
+            'domicile_city_code' => 'nullable|string|max:20',
+            'domicile_district_code' => 'nullable|string|max:20',
+            'domicile_village_code' => 'nullable|string|max:20',
+            'status' => 'nullable|string|max:50',
+            'sort_by' => 'nullable|string|max:50',
+            'sort_dir' => 'nullable|in:asc,desc,ASC,DESC',
             'per_page' => 'nullable|integer|min:1|max:100',
+            'page' => 'nullable|integer|min:1',
         ]);
 
         $event = Event::find($id);
@@ -479,11 +490,63 @@ class EventController extends Controller
             return response()->json(['success' => false, 'message' => 'Event not found'], 404);
         }
 
+        $query = $event->presensis()->with('user:id,first_name,last_name,email,phone,graduation_year');
+
+        if (! empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->whereHas('user', function ($u) use ($search) {
+                $u->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
+        $graduationYear = $filters['graduation_year'] ?? $filters['angkatan'] ?? null;
+        if (! empty($graduationYear)) {
+            $query->whereHas('user', fn ($u) => $u->where('graduation_year', $graduationYear));
+        }
+
+        foreach ([
+            'domicile_province_code' => 'province_code',
+            'domicile_city_code' => 'city_code',
+            'domicile_district_code' => 'district_code',
+            'domicile_village_code' => 'village_code',
+        ] as $filter => $column) {
+            if (! empty($filters[$filter])) {
+                $query->whereHas('user.domicile', fn ($q) => $q->where($column, $filters[$filter]));
+            }
+        }
+
+        if (! empty($filters['status'])) {
+            $st = strtolower($filters['status']);
+            $canonicalStatus = match ($st) {
+                'hadir', 'attended' => 'attended',
+                'terdaftar', 'registered' => 'registered',
+                'tidak_hadir', 'tidak hadir', 'absent' => 'absent',
+                default => $st,
+            };
+            $query->where('status', $canonicalStatus);
+        }
+
+        $sortDir = strtolower($filters['sort_dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+        $sortBy = $filters['sort_by'] ?? 'scanned_at';
+
+        if ($sortBy === 'name' || $sortBy === 'first_name') {
+            $query->orderBy(User::select('first_name')->whereColumn('users.id', 'presensis.user_id'), $sortDir);
+        } elseif ($sortBy === 'email') {
+            $query->orderBy(User::select('email')->whereColumn('users.id', 'presensis.user_id'), $sortDir);
+        } elseif ($sortBy === 'graduation_year' || $sortBy === 'angkatan') {
+            $query->orderBy(User::select('graduation_year')->whereColumn('users.id', 'presensis.user_id'), $sortDir);
+        } elseif ($sortBy === 'status') {
+            $query->orderBy('status', $sortDir);
+        } else {
+            $query->orderBy('scanned_at', $sortDir);
+        }
+        $query->orderBy('id', 'desc');
+
         $perPage = $filters['per_page'] ?? 10;
-        $attendances = $event->presensis()
-            ->with('user:id,first_name,last_name,email,phone,graduation_year')
-            ->orderBy('scanned_at', 'asc')
-            ->paginate($perPage);
+        $attendances = $query->paginate($perPage);
 
         $registrationByUserId = $event->registrations()
             ->whereIn('user_id', collect($attendances->items())->pluck('user_id'))
@@ -580,8 +643,18 @@ class EventController extends Controller
     public function registrations(Request $request, int $id): JsonResponse
     {
         $filters = $request->validate([
-            'status' => 'nullable|in:registered,attended,absent',
+            'search' => 'nullable|string|max:255',
+            'graduation_year' => 'nullable|string|max:10',
+            'angkatan' => 'nullable|string|max:10',
+            'domicile_province_code' => 'nullable|string|max:20',
+            'domicile_city_code' => 'nullable|string|max:20',
+            'domicile_district_code' => 'nullable|string|max:20',
+            'domicile_village_code' => 'nullable|string|max:20',
+            'status' => 'nullable|string|max:50',
+            'sort_by' => 'nullable|string|max:50',
+            'sort_dir' => 'nullable|in:asc,desc,ASC,DESC',
             'per_page' => 'nullable|integer|min:1|max:100',
+            'page' => 'nullable|integer|min:1',
         ]);
 
         $event = Event::withCount(['registrations', 'presensis'])->find($id);
@@ -592,12 +665,61 @@ class EventController extends Controller
 
         $query = $event->registrations()->with('user:id,first_name,last_name,email,phone,graduation_year');
 
-        if (! empty($filters['status'])) {
-            $query->where('status', $filters['status']);
+        if (! empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->whereHas('user', function ($u) use ($search) {
+                $u->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%");
+            });
         }
 
+        $graduationYear = $filters['graduation_year'] ?? $filters['angkatan'] ?? null;
+        if (! empty($graduationYear)) {
+            $query->whereHas('user', fn ($u) => $u->where('graduation_year', $graduationYear));
+        }
+
+        foreach ([
+            'domicile_province_code' => 'province_code',
+            'domicile_city_code' => 'city_code',
+            'domicile_district_code' => 'district_code',
+            'domicile_village_code' => 'village_code',
+        ] as $filter => $column) {
+            if (! empty($filters[$filter])) {
+                $query->whereHas('user.domicile', fn ($q) => $q->where($column, $filters[$filter]));
+            }
+        }
+
+        if (! empty($filters['status'])) {
+            $st = strtolower($filters['status']);
+            $canonicalStatus = match ($st) {
+                'hadir', 'attended' => 'attended',
+                'terdaftar', 'registered' => 'registered',
+                'tidak_hadir', 'tidak hadir', 'absent' => 'absent',
+                default => $st,
+            };
+            $query->where('status', $canonicalStatus);
+        }
+
+        $sortDir = strtolower($filters['sort_dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+        $sortBy = $filters['sort_by'] ?? 'registered_at';
+
+        if ($sortBy === 'name' || $sortBy === 'first_name') {
+            $query->orderBy(User::select('first_name')->whereColumn('users.id', 'event_registrations.user_id'), $sortDir);
+        } elseif ($sortBy === 'email') {
+            $query->orderBy(User::select('email')->whereColumn('users.id', 'event_registrations.user_id'), $sortDir);
+        } elseif ($sortBy === 'graduation_year' || $sortBy === 'angkatan') {
+            $query->orderBy(User::select('graduation_year')->whereColumn('users.id', 'event_registrations.user_id'), $sortDir);
+        } elseif ($sortBy === 'status') {
+            $query->orderBy('status', $sortDir);
+        } else {
+            $query->orderBy('registered_at', $sortDir);
+        }
+        $query->orderBy('id', 'desc');
+
         $perPage = $filters['per_page'] ?? 10;
-        $registrations = $query->orderBy('registered_at', 'asc')->paginate($perPage);
+        $registrations = $query->paginate($perPage);
         $presensiByUserId = $event->presensis()
             ->whereIn('user_id', collect($registrations->items())->pluck('user_id'))
             ->get(['id', 'event_id', 'user_id', 'status', 'scanned_at'])
