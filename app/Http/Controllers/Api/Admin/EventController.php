@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UserResource;
+use App\Models\ActivityLog;
 use App\Models\AlumniNotification;
 use App\Models\Event;
 use App\Models\Presensi;
@@ -12,6 +14,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -227,7 +230,7 @@ class EventController extends Controller
 
         $event->load(['category', 'createdBy']);
 
-        \App\Models\ActivityLog::log('create_event', 'Admin created a new event: ' . $event->event_title);
+        ActivityLog::log('create_event', 'Admin created a new event: '.$event->event_title);
         $this->sendNewEventNotifications($event);
 
         return response()->json([
@@ -323,7 +326,7 @@ class EventController extends Controller
 
         $event->update(Arr::except($validated, ['poster']));
 
-        \App\Models\ActivityLog::log('update_event', 'Admin updated event: ' . $event->event_title);
+        ActivityLog::log('update_event', 'Admin updated event: '.$event->event_title);
 
         $updatedEvent = $event->fresh()
             ->load(['category', 'createdBy'])
@@ -377,7 +380,7 @@ class EventController extends Controller
             Storage::disk('public')->delete($event->poster_image);
         }
 
-        \App\Models\ActivityLog::log('delete_event', 'Admin deleted event: ' . $event->event_title);
+        ActivityLog::log('delete_event', 'Admin deleted event: '.$event->event_title);
 
         $event->delete();
 
@@ -426,7 +429,7 @@ class EventController extends Controller
         $newStatus = $event->status_event === 'active' ? 'inactive' : 'active';
         $event->update(['status_event' => $newStatus]);
 
-        \App\Models\ActivityLog::log('toggle_event', 'Admin changed event status of "' . $event->event_title . '" to ' . $newStatus);
+        ActivityLog::log('toggle_event', 'Admin changed event status of "'.$event->event_title.'" to '.$newStatus);
 
         return response()->json([
             'success' => true,
@@ -444,7 +447,18 @@ class EventController extends Controller
         tags: ['Admin - Event Management'],
         parameters: [
             new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'search', in: 'query', required: false, description: 'Search user name, email, or phone.', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'graduation_year', in: 'query', required: false, description: 'Filter by graduation year.', schema: new OA\Schema(type: 'string', example: '2021')),
+            new OA\Parameter(name: 'angkatan', in: 'query', required: false, description: 'Alias of graduation_year.', schema: new OA\Schema(type: 'string', example: '2021')),
+            new OA\Parameter(name: 'domicile_province_code', in: 'query', required: false, schema: new OA\Schema(type: 'string', example: '32')),
+            new OA\Parameter(name: 'domicile_city_code', in: 'query', required: false, schema: new OA\Schema(type: 'string', example: '3273')),
+            new OA\Parameter(name: 'domicile_district_code', in: 'query', required: false, schema: new OA\Schema(type: 'string', example: '3273010')),
+            new OA\Parameter(name: 'domicile_village_code', in: 'query', required: false, schema: new OA\Schema(type: 'string', example: '3273010001')),
+            new OA\Parameter(name: 'status', in: 'query', required: false, description: 'Presensi status. attended is accepted as an alias of hadir.', schema: new OA\Schema(type: 'string', enum: ['hadir', 'attended', 'registered', 'absent'])),
+            new OA\Parameter(name: 'sort_by', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['name', 'first_name', 'email', 'graduation_year', 'angkatan', 'domicile', 'status', 'scanned_at'], default: 'scanned_at')),
+            new OA\Parameter(name: 'sort_dir', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['asc', 'desc'], default: 'asc')),
             new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', example: 10)),
+            new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', example: 1)),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Attendance list',
@@ -454,6 +468,36 @@ class EventController extends Controller
                         new OA\Property(property: 'data', type: 'object',
                             properties: [
                                 new OA\Property(property: 'event', ref: '#/components/schemas/Event'),
+                                new OA\Property(property: 'summary', type: 'object', properties: [
+                                    new OA\Property(property: 'total_registered', type: 'integer', example: 70),
+                                    new OA\Property(property: 'total_attended', type: 'integer', example: 54),
+                                    new OA\Property(property: 'total_absent', type: 'integer', example: 16),
+                                    new OA\Property(property: 'total_not_attended', type: 'integer', example: 16),
+                                ]),
+                                new OA\Property(
+                                    property: 'breakdown',
+                                    type: 'object',
+                                    description: 'Overview of all event attendances. This is not affected by table filters or pagination.',
+                                    properties: [
+                                        new OA\Property(property: 'by_angkatan', type: 'array', items: new OA\Items(
+                                            type: 'object',
+                                            properties: [
+                                                new OA\Property(property: 'angkatan', type: 'string', example: '2021'),
+                                                new OA\Property(property: 'total', type: 'integer', example: 18),
+                                            ]
+                                        )),
+                                        new OA\Property(property: 'by_domicile', type: 'array', items: new OA\Items(
+                                            type: 'object',
+                                            properties: [
+                                                new OA\Property(property: 'city_code', type: 'string', nullable: true, example: '3273'),
+                                                new OA\Property(property: 'city_name', type: 'string', example: 'Kota Bandung'),
+                                                new OA\Property(property: 'province_code', type: 'string', nullable: true, example: '32'),
+                                                new OA\Property(property: 'province_name', type: 'string', nullable: true, example: 'Jawa Barat'),
+                                                new OA\Property(property: 'total', type: 'integer', example: 18),
+                                            ]
+                                        )),
+                                    ]
+                                ),
                                 new OA\Property(property: 'attendances', type: 'array', items: new OA\Items(ref: '#/components/schemas/Presensi')),
                                 new OA\Property(property: 'total', type: 'integer', example: 30),
                                 new OA\Property(property: 'current_page', type: 'integer', example: 1),
@@ -463,8 +507,10 @@ class EventController extends Controller
                     ]
                 )
             ),
+            new OA\Response(response: 401, description: 'Unauthenticated', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
             new OA\Response(response: 404, description: 'Event not found', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
             new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Invalid query parameters', content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')),
         ]
     )]
     public function attendances(Request $request, int $id): JsonResponse
@@ -484,21 +530,25 @@ class EventController extends Controller
             'page' => 'nullable|integer|min:1',
         ]);
 
-        $event = Event::find($id);
+        $event = Event::withCount(['registrations', 'presensis'])->find($id);
 
         if (! $event) {
             return response()->json(['success' => false, 'message' => 'Event not found'], 404);
         }
 
-        $query = $event->presensis()->with('user:id,first_name,last_name,email,phone,graduation_year');
+        $query = $event->presensis()->with([
+            'user' => fn ($userQuery) => $userQuery
+                ->select('id', 'first_name', 'last_name', 'email', 'phone', 'graduation_year')
+                ->with('domicile'),
+        ]);
 
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->whereHas('user', function ($u) use ($search) {
                 $u->where('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
             });
         }
 
@@ -521,7 +571,7 @@ class EventController extends Controller
         if (! empty($filters['status'])) {
             $st = strtolower($filters['status']);
             $canonicalStatus = match ($st) {
-                'hadir', 'attended' => 'attended',
+                'hadir', 'attended' => 'hadir',
                 'terdaftar', 'registered' => 'registered',
                 'tidak_hadir', 'tidak hadir', 'absent' => 'absent',
                 default => $st,
@@ -538,12 +588,20 @@ class EventController extends Controller
             $query->orderBy(User::select('email')->whereColumn('users.id', 'presensis.user_id'), $sortDir);
         } elseif ($sortBy === 'graduation_year' || $sortBy === 'angkatan') {
             $query->orderBy(User::select('graduation_year')->whereColumn('users.id', 'presensis.user_id'), $sortDir);
+        } elseif ($sortBy === 'domicile') {
+            $query
+                ->select('presensis.*')
+                ->leftJoin('user_domiciles as attendance_domiciles', 'attendance_domiciles.user_id', '=', 'presensis.user_id')
+                ->orderByRaw("CASE WHEN NULLIF(TRIM(attendance_domiciles.city_name), '') IS NULL THEN 1 ELSE 0 END ASC")
+                ->orderBy('attendance_domiciles.city_name', $sortDir)
+                ->orderBy('attendance_domiciles.province_name', $sortDir)
+                ->orderBy(User::select('first_name')->whereColumn('users.id', 'presensis.user_id'));
         } elseif ($sortBy === 'status') {
-            $query->orderBy('status', $sortDir);
+            $query->orderBy('presensis.status', $sortDir);
         } else {
-            $query->orderBy('scanned_at', $sortDir);
+            $query->orderBy('presensis.scanned_at', $sortDir);
         }
-        $query->orderBy('id', 'desc');
+        $query->orderBy('presensis.id', $sortBy === 'domicile' ? 'asc' : 'desc');
 
         $perPage = $filters['per_page'] ?? 10;
         $attendances = $query->paginate($perPage);
@@ -558,6 +616,7 @@ class EventController extends Controller
             'data' => [
                 'event' => $this->formatEventMeta($event),
                 'summary' => $this->eventSummary($event),
+                'breakdown' => $this->attendanceBreakdown($event),
                 'attendances' => $this->formatPaginatorUsers($attendances, $registrationByUserId),
                 'total' => $attendances->total(),
                 'current_page' => $attendances->currentPage(),
@@ -669,9 +728,9 @@ class EventController extends Controller
             $search = $filters['search'];
             $query->whereHas('user', function ($u) use ($search) {
                 $u->where('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
             });
         }
 
@@ -774,15 +833,74 @@ class EventController extends Controller
 
     private function formatEventUser(User $user): array
     {
+        $resource = (new UserResource($user))->resolve(request());
+
         return [
             'id' => $user->id,
-            'name' => trim($user->first_name . ' ' . $user->last_name),
+            'name' => trim($user->first_name.' '.$user->last_name),
             'first_name' => $user->first_name,
             'last_name' => $user->last_name,
             'email' => $user->email,
             'phone' => $user->phone,
             'angkatan' => $user->graduation_year,
             'graduation_year' => $user->graduation_year,
+            'domicile' => $resource['domicile'] ?? null,
+        ];
+    }
+
+    private function attendanceBreakdown(Event $event): array
+    {
+        $graduationYearExpression = "NULLIF(TRIM(users.graduation_year), '')";
+        $byAngkatan = DB::table('presensis')
+            ->join('users', 'users.id', '=', 'presensis.user_id')
+            ->where('presensis.event_id', $event->id)
+            ->selectRaw("{$graduationYearExpression} AS angkatan_value, COUNT(*) AS total")
+            ->groupByRaw($graduationYearExpression)
+            ->orderByRaw("CASE WHEN {$graduationYearExpression} IS NULL THEN 1 ELSE 0 END ASC")
+            ->orderByRaw("{$graduationYearExpression} DESC")
+            ->get()
+            ->map(fn ($row) => [
+                'angkatan' => $row->angkatan_value ?: 'Tidak diketahui',
+                'total' => (int) $row->total,
+            ])
+            ->values()
+            ->all();
+
+        $knownCityCondition = "NULLIF(TRIM(user_domiciles.city_code), '') IS NOT NULL"
+            ." AND NULLIF(TRIM(user_domiciles.city_name), '') IS NOT NULL";
+        $cityCodeExpression = "CASE WHEN {$knownCityCondition} THEN user_domiciles.city_code ELSE NULL END";
+        $cityNameExpression = "CASE WHEN {$knownCityCondition} THEN user_domiciles.city_name ELSE NULL END";
+        $provinceCodeExpression = "CASE WHEN {$knownCityCondition} THEN user_domiciles.province_code ELSE NULL END";
+        $provinceNameExpression = "CASE WHEN {$knownCityCondition} THEN user_domiciles.province_name ELSE NULL END";
+
+        $byDomicile = DB::table('presensis')
+            ->leftJoin('user_domiciles', 'user_domiciles.user_id', '=', 'presensis.user_id')
+            ->where('presensis.event_id', $event->id)
+            ->selectRaw(implode(', ', [
+                "{$cityCodeExpression} AS city_code_value",
+                "MAX({$cityNameExpression}) AS city_name_value",
+                "MAX({$provinceCodeExpression}) AS province_code_value",
+                "MAX({$provinceNameExpression}) AS province_name_value",
+                'COUNT(*) AS total',
+            ]))
+            ->groupByRaw($cityCodeExpression)
+            ->orderByRaw("CASE WHEN {$cityCodeExpression} IS NULL THEN 1 ELSE 0 END ASC")
+            ->orderByDesc('total')
+            ->orderBy('city_name_value')
+            ->get()
+            ->map(fn ($row) => [
+                'city_code' => $row->city_code_value ?: null,
+                'city_name' => $row->city_name_value ?: 'Tidak diketahui',
+                'province_code' => $row->province_code_value ?: null,
+                'province_name' => $row->province_name_value ?: null,
+                'total' => (int) $row->total,
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'by_angkatan' => $byAngkatan,
+            'by_domicile' => $byDomicile,
         ];
     }
 
@@ -849,7 +967,7 @@ class EventController extends Controller
             return Carbon::parse($time)->format('H:i');
         } catch (Throwable) {
             throw ValidationException::withMessages([
-                $field => ['The ' . str_replace('_', ' ', $field) . ' field must be a valid time.'],
+                $field => ['The '.str_replace('_', ' ', $field).' field must be a valid time.'],
             ]);
         }
     }
@@ -892,8 +1010,8 @@ class EventController extends Controller
 
             $notifications = $alumniUserIds->map(fn ($userId) => [
                 'user_id' => $userId,
-                'title' => 'Event Baru: ' . $event->event_title,
-                'body' => 'Event "' . $event->event_title . '" telah dijadwalkan pada ' . $event->event_date->toDateString() . ' di ' . $event->location,
+                'title' => 'Event Baru: '.$event->event_title,
+                'body' => 'Event "'.$event->event_title.'" telah dijadwalkan pada '.$event->event_date->toDateString().' di '.$event->location,
                 'type' => 'upcoming_event',
                 'priority' => 'normal',
                 'data' => json_encode([
