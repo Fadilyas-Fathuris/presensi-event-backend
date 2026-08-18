@@ -2242,12 +2242,133 @@
                         }
                     },
                     {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Search user name, email, or phone.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "graduation_year",
+                        "in": "query",
+                        "description": "Filter by graduation year.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "2021"
+                        }
+                    },
+                    {
+                        "name": "angkatan",
+                        "in": "query",
+                        "description": "Alias of graduation_year.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "2021"
+                        }
+                    },
+                    {
+                        "name": "domicile_province_code",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "32"
+                        }
+                    },
+                    {
+                        "name": "domicile_city_code",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "3273"
+                        }
+                    },
+                    {
+                        "name": "domicile_district_code",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "3273010"
+                        }
+                    },
+                    {
+                        "name": "domicile_village_code",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "3273010001"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Presensi status. attended is accepted as an alias of hadir.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "hadir",
+                                "attended",
+                                "registered",
+                                "absent"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "sort_by",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "scanned_at",
+                            "enum": [
+                                "name",
+                                "first_name",
+                                "email",
+                                "graduation_year",
+                                "angkatan",
+                                "domicile",
+                                "status",
+                                "scanned_at"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "sort_dir",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        }
+                    },
+                    {
                         "name": "per_page",
                         "in": "query",
                         "required": false,
                         "schema": {
                             "type": "integer",
                             "example": 10
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
                         }
                     }
                 ],
@@ -2266,6 +2387,80 @@
                                             "properties": {
                                                 "event": {
                                                     "$ref": "#/components/schemas/Event"
+                                                },
+                                                "summary": {
+                                                    "properties": {
+                                                        "total_registered": {
+                                                            "type": "integer",
+                                                            "example": 70
+                                                        },
+                                                        "total_attended": {
+                                                            "type": "integer",
+                                                            "example": 54
+                                                        },
+                                                        "total_absent": {
+                                                            "type": "integer",
+                                                            "example": 16
+                                                        },
+                                                        "total_not_attended": {
+                                                            "type": "integer",
+                                                            "example": 16
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "breakdown": {
+                                                    "description": "Overview of all event attendances. This is not affected by table filters or pagination.",
+                                                    "properties": {
+                                                        "by_angkatan": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "properties": {
+                                                                    "angkatan": {
+                                                                        "type": "string",
+                                                                        "example": "2021"
+                                                                    },
+                                                                    "total": {
+                                                                        "type": "integer",
+                                                                        "example": 18
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        },
+                                                        "by_domicile": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "properties": {
+                                                                    "city_code": {
+                                                                        "type": "string",
+                                                                        "example": "3273",
+                                                                        "nullable": true
+                                                                    },
+                                                                    "city_name": {
+                                                                        "type": "string",
+                                                                        "example": "Kota Bandung"
+                                                                    },
+                                                                    "province_code": {
+                                                                        "type": "string",
+                                                                        "example": "32",
+                                                                        "nullable": true
+                                                                    },
+                                                                    "province_name": {
+                                                                        "type": "string",
+                                                                        "example": "Jawa Barat",
+                                                                        "nullable": true
+                                                                    },
+                                                                    "total": {
+                                                                        "type": "integer",
+                                                                        "example": 18
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        }
+                                                    },
+                                                    "type": "object"
                                                 },
                                                 "attendances": {
                                                     "type": "array",
@@ -2294,6 +2489,16 @@
                             }
                         }
                     },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "Event not found",
                         "content": {
@@ -2310,6 +2515,16 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid query parameters",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
                                 }
                             }
                         }
@@ -5286,6 +5501,82 @@
     },
     "components": {
         "schemas": {
+            "UserDomicile": {
+                "properties": {
+                    "province": {
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "example": "32",
+                                "nullable": true
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Jawa Barat",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "city": {
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "example": "3273",
+                                "nullable": true
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Kota Bandung",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "district": {
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "example": "3273010",
+                                "nullable": true
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Andir",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "village": {
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "example": "3273010001",
+                                "nullable": true
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Campaka",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "postal_code": {
+                        "type": "string",
+                        "example": "40184",
+                        "nullable": true
+                    },
+                    "address": {
+                        "type": "string",
+                        "example": "Jl. Contoh No. 1",
+                        "nullable": true
+                    }
+                },
+                "type": "object",
+                "nullable": true
+            },
             "User": {
                 "properties": {
                     "id": {
@@ -5324,6 +5615,9 @@
                         "type": "string",
                         "example": "/storage/avatars/avatar123.jpg",
                         "nullable": true
+                    },
+                    "domicile": {
+                        "$ref": "#/components/schemas/UserDomicile"
                     },
                     "created_at": {
                         "type": "string",
@@ -5458,6 +5752,10 @@
                     "user_id": {
                         "type": "integer",
                         "example": 2
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "hadir"
                     },
                     "scanned_at": {
                         "type": "string",

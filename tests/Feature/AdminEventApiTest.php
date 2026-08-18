@@ -7,6 +7,7 @@ use App\Models\Event;
 use App\Models\EventRegistration;
 use App\Models\Presensi;
 use App\Models\User;
+use App\Models\UserDomicile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -136,6 +137,138 @@ class AdminEventApiTest extends TestCase
             ->assertJsonPath('data.attendances.0.user.angkatan', '2020')
             ->assertJsonPath('data.attendances.0.attendance.status', 'hadir')
             ->assertJsonPath('data.summary.total_attended', 1);
+    }
+
+    public function test_attendance_breakdown_uses_all_event_attendances_and_includes_domicile(): void
+    {
+        $admin = $this->createAdmin();
+        $event = $this->createEvent($admin);
+        $bandung = [
+            'province_code' => '32',
+            'province_name' => 'Jawa Barat',
+            'city_code' => '3273',
+            'city_name' => 'Kota Bandung',
+        ];
+        $bekasi = [
+            'province_code' => '32',
+            'province_name' => 'Jawa Barat',
+            'city_code' => '3275',
+            'city_name' => 'Kota Bekasi',
+        ];
+
+        $this->createAttendanceAlumni($event, 'Ahmad', '2021', $bandung, 1);
+        $this->createAttendanceAlumni($event, 'Budi', '2021', $bandung, 2);
+        $this->createAttendanceAlumni($event, 'Citra', '2021', $bandung, 3);
+        $this->createAttendanceAlumni($event, 'Dedi', '2020', $bekasi, 4);
+        $this->createAttendanceAlumni($event, 'Eka', '2020', $bekasi, 5);
+        $this->createAttendanceAlumni($event, 'Fajar', null, null, 6);
+
+        Sanctum::actingAs($admin);
+
+        $pageOne = $this->getJson("/api/admin/events/{$event->id}/attendances?per_page=2&page=1")
+            ->assertOk()
+            ->assertJsonCount(2, 'data.attendances')
+            ->assertJsonPath('data.total', 6)
+            ->assertJsonPath('data.attendances.0.user.domicile.city.name', 'Kota Bandung')
+            ->json('data');
+
+        $expectedByAngkatan = [
+            ['angkatan' => '2021', 'total' => 3],
+            ['angkatan' => '2020', 'total' => 2],
+            ['angkatan' => 'Tidak diketahui', 'total' => 1],
+        ];
+        $expectedByDomicile = [
+            [
+                'city_code' => '3273',
+                'city_name' => 'Kota Bandung',
+                'province_code' => '32',
+                'province_name' => 'Jawa Barat',
+                'total' => 3,
+            ],
+            [
+                'city_code' => '3275',
+                'city_name' => 'Kota Bekasi',
+                'province_code' => '32',
+                'province_name' => 'Jawa Barat',
+                'total' => 2,
+            ],
+            [
+                'city_code' => null,
+                'city_name' => 'Tidak diketahui',
+                'province_code' => null,
+                'province_name' => null,
+                'total' => 1,
+            ],
+        ];
+
+        $this->assertSame($expectedByAngkatan, $pageOne['breakdown']['by_angkatan']);
+        $this->assertSame($expectedByDomicile, $pageOne['breakdown']['by_domicile']);
+        $this->assertSame(6, array_sum(array_column($pageOne['breakdown']['by_angkatan'], 'total')));
+        $this->assertSame(6, array_sum(array_column($pageOne['breakdown']['by_domicile'], 'total')));
+
+        $pageTwo = $this->getJson("/api/admin/events/{$event->id}/attendances?per_page=2&page=2")
+            ->assertOk()
+            ->assertJsonCount(2, 'data.attendances')
+            ->json('data');
+        $this->assertSame($pageOne['breakdown'], $pageTwo['breakdown']);
+
+        $this->getJson("/api/admin/events/{$event->id}/attendances?per_page=2&page=3")
+            ->assertOk()
+            ->assertJsonPath('data.attendances.1.user.domicile', null);
+
+        $filtered = $this->getJson(
+            "/api/admin/events/{$event->id}/attendances?angkatan=2021&domicile_city_code=3273&status=attended&per_page=100"
+        )
+            ->assertOk()
+            ->assertJsonPath('data.total', 3)
+            ->json('data');
+        $this->assertSame($pageOne['breakdown'], $filtered['breakdown']);
+    }
+
+    public function test_attendances_can_be_sorted_by_angkatan_and_domicile_with_unknown_city_last(): void
+    {
+        $admin = $this->createAdmin();
+        $event = $this->createEvent($admin);
+        $bandung = [
+            'province_code' => '32',
+            'province_name' => 'Jawa Barat',
+            'city_code' => '3273',
+            'city_name' => 'Kota Bandung',
+        ];
+        $bekasi = [
+            'province_code' => '32',
+            'province_name' => 'Jawa Barat',
+            'city_code' => '3275',
+            'city_name' => 'Kota Bekasi',
+        ];
+
+        $this->createAttendanceAlumni($event, 'Zaki', '2021', $bandung, 1);
+        $this->createAttendanceAlumni($event, 'Bima', '2019', $bekasi, 2);
+        $this->createAttendanceAlumni($event, 'Agus', '2020', null, 3);
+
+        Sanctum::actingAs($admin);
+
+        $angkatanAsc = $this->getJson(
+            "/api/admin/events/{$event->id}/attendances?sort_by=angkatan&sort_dir=asc&per_page=100"
+        )->assertOk()->json('data.attendances');
+        $angkatanDesc = $this->getJson(
+            "/api/admin/events/{$event->id}/attendances?sort_by=angkatan&sort_dir=desc&per_page=100"
+        )->assertOk()->json('data.attendances');
+
+        $this->assertSame(['2019', '2020', '2021'], array_column(array_column($angkatanAsc, 'user'), 'angkatan'));
+        $this->assertSame(['2021', '2020', '2019'], array_column(array_column($angkatanDesc, 'user'), 'angkatan'));
+
+        $domicileAsc = $this->getJson(
+            "/api/admin/events/{$event->id}/attendances?sort_by=domicile&sort_dir=asc&per_page=100"
+        )->assertOk()->json('data.attendances');
+        $domicileDesc = $this->getJson(
+            "/api/admin/events/{$event->id}/attendances?sort_by=domicile&sort_dir=desc&per_page=100"
+        )->assertOk()->json('data.attendances');
+
+        $this->assertSame(['Zaki', 'Bima', 'Agus'], array_column(array_column($domicileAsc, 'user'), 'first_name'));
+        $this->assertSame(['Bima', 'Zaki', 'Agus'], array_column(array_column($domicileDesc, 'user'), 'first_name'));
+        $this->assertNull($domicileAsc[2]['user']['domicile']);
+        $this->assertNull($domicileDesc[2]['user']['domicile']);
     }
 
     public function test_admin_event_list_exposes_realtime_quota_status(): void
@@ -269,5 +402,45 @@ class AdminEventApiTest extends TestCase
             'status_event' => 'active',
             'quota' => $quota,
         ]);
+    }
+
+    private function createAttendanceAlumni(
+        Event $event,
+        string $firstName,
+        ?string $graduationYear,
+        ?array $domicile,
+        int $scanOrder
+    ): User {
+        $user = User::query()->create([
+            'first_name' => $firstName,
+            'gender' => 'Laki-laki',
+            'email' => strtolower($firstName)."-{$event->id}@example.com",
+            'password' => 'password',
+            'phone' => '08123'.str_pad((string) $scanOrder, 6, '0', STR_PAD_LEFT),
+            'graduation_year' => $graduationYear,
+            'role' => 'alumni',
+        ]);
+
+        if ($domicile !== null) {
+            UserDomicile::query()->create([
+                'user_id' => $user->id,
+                ...$domicile,
+                'district_code' => '3273010',
+                'district_name' => 'Kecamatan Contoh',
+                'village_code' => '3273010001',
+                'village_name' => 'Kelurahan Contoh',
+                'postal_code' => '40111',
+                'address' => "Alamat {$firstName}",
+            ]);
+        }
+
+        Presensi::query()->create([
+            'event_id' => $event->id,
+            'user_id' => $user->id,
+            'status' => 'hadir',
+            'scanned_at' => now()->addSeconds($scanOrder),
+        ]);
+
+        return $user;
     }
 }
