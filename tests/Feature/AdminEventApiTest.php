@@ -9,6 +9,7 @@ use App\Models\Presensi;
 use App\Models\User;
 use App\Models\UserDomicile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -269,6 +270,145 @@ class AdminEventApiTest extends TestCase
         $this->assertSame(['Bima', 'Zaki', 'Agus'], array_column(array_column($domicileDesc, 'user'), 'first_name'));
         $this->assertNull($domicileAsc[2]['user']['domicile']);
         $this->assertNull($domicileDesc[2]['user']['domicile']);
+    }
+
+    public function test_attendance_breakdown_orders_angkatan_in_php_without_sql_order_by(): void
+    {
+        $admin = $this->createAdmin();
+        $event = $this->createEvent($admin);
+
+        foreach ([
+            ['Year2020', '2020'],
+            ['Year2022', '2022'],
+            ['Year2021', '2021'],
+            ['YearNull', null],
+            ['YearEmpty', ''],
+        ] as $index => [$name, $graduationYear]) {
+            $this->createAttendanceAlumni(
+                $event,
+                $name,
+                $graduationYear,
+                null,
+                $index + 1,
+            );
+        }
+
+        $executedSql = [];
+        DB::listen(function ($query) use (&$executedSql): void {
+            $executedSql[] = strtolower($query->sql);
+        });
+        Sanctum::actingAs($admin);
+
+        $breakdown = $this->getJson("/api/admin/events/{$event->id}/attendances?per_page=1")
+            ->assertOk()
+            ->json('data.breakdown');
+
+        $this->assertSame([
+            ['angkatan' => '2022', 'total' => 1],
+            ['angkatan' => '2021', 'total' => 1],
+            ['angkatan' => '2020', 'total' => 1],
+            ['angkatan' => 'Tidak diketahui', 'total' => 2],
+        ], $breakdown['by_angkatan']);
+
+        $aggregationQueries = collect($executedSql)
+            ->filter(fn (string $sql) => str_contains($sql, 'presensis') && str_contains($sql, 'group by'))
+            ->values();
+
+        $this->assertCount(2, $aggregationQueries);
+        $aggregationQueries->each(function (string $sql): void {
+            $this->assertStringNotContainsString('order by', $sql);
+        });
+    }
+
+    public function test_attendance_breakdown_orders_domicile_buckets_by_total_then_city_with_unknown_last(): void
+    {
+        $admin = $this->createAdmin();
+        $event = $this->createEvent($admin);
+        $cities = [
+            'Bandung' => [
+                'province_code' => '32',
+                'province_name' => 'Jawa Barat',
+                'city_code' => '3273',
+                'city_name' => 'Kota Bandung',
+                'total' => 2,
+            ],
+            'Bekasi' => [
+                'province_code' => '32',
+                'province_name' => 'Jawa Barat',
+                'city_code' => '3275',
+                'city_name' => 'Kota Bekasi',
+                'total' => 4,
+            ],
+            'Depok' => [
+                'province_code' => '32',
+                'province_name' => 'Jawa Barat',
+                'city_code' => '3276',
+                'city_name' => 'Kota Depok',
+                'total' => 2,
+            ],
+        ];
+        $scanOrder = 1;
+
+        foreach ($cities as $label => $city) {
+            for ($index = 1; $index <= $city['total']; $index++) {
+                $domicile = $city;
+                unset($domicile['total']);
+                $this->createAttendanceAlumni(
+                    $event,
+                    "{$label}{$index}",
+                    '2021',
+                    $domicile,
+                    $scanOrder++,
+                );
+            }
+        }
+
+        for ($index = 1; $index <= 5; $index++) {
+            $this->createAttendanceAlumni(
+                $event,
+                "Unknown{$index}",
+                '2021',
+                null,
+                $scanOrder++,
+            );
+        }
+
+        Sanctum::actingAs($admin);
+
+        $byDomicile = $this->getJson("/api/admin/events/{$event->id}/attendances?per_page=1")
+            ->assertOk()
+            ->json('data.breakdown.by_domicile');
+
+        $this->assertSame([
+            [
+                'city_code' => '3275',
+                'city_name' => 'Kota Bekasi',
+                'province_code' => '32',
+                'province_name' => 'Jawa Barat',
+                'total' => 4,
+            ],
+            [
+                'city_code' => '3273',
+                'city_name' => 'Kota Bandung',
+                'province_code' => '32',
+                'province_name' => 'Jawa Barat',
+                'total' => 2,
+            ],
+            [
+                'city_code' => '3276',
+                'city_name' => 'Kota Depok',
+                'province_code' => '32',
+                'province_name' => 'Jawa Barat',
+                'total' => 2,
+            ],
+            [
+                'city_code' => null,
+                'city_name' => 'Tidak diketahui',
+                'province_code' => null,
+                'province_name' => null,
+                'total' => 5,
+            ],
+        ], $byDomicile);
     }
 
     public function test_admin_event_list_exposes_realtime_quota_status(): void
