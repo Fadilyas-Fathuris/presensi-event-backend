@@ -856,13 +856,34 @@ class EventController extends Controller
             ->where('presensis.event_id', $event->id)
             ->selectRaw("{$graduationYearExpression} AS angkatan_value, COUNT(*) AS total")
             ->groupByRaw($graduationYearExpression)
-            ->orderByRaw("CASE WHEN {$graduationYearExpression} IS NULL THEN 1 ELSE 0 END ASC")
-            ->orderByRaw("{$graduationYearExpression} DESC")
             ->get()
             ->map(fn ($row) => [
                 'angkatan' => $row->angkatan_value ?: 'Tidak diketahui',
                 'total' => (int) $row->total,
             ])
+            ->sort(function (array $left, array $right): int {
+                $leftUnknown = $left['angkatan'] === 'Tidak diketahui';
+                $rightUnknown = $right['angkatan'] === 'Tidak diketahui';
+
+                if ($leftUnknown !== $rightUnknown) {
+                    return $leftUnknown ? 1 : -1;
+                }
+
+                $leftNumeric = preg_match('/^\d+$/', $left['angkatan']) === 1;
+                $rightNumeric = preg_match('/^\d+$/', $right['angkatan']) === 1;
+
+                if ($leftNumeric && $rightNumeric) {
+                    return ((int) $right['angkatan'] <=> (int) $left['angkatan'])
+                        ?: strcmp($right['angkatan'], $left['angkatan']);
+                }
+
+                if ($leftNumeric !== $rightNumeric) {
+                    return $leftNumeric ? -1 : 1;
+                }
+
+                return strcasecmp($right['angkatan'], $left['angkatan'])
+                    ?: strcmp($right['angkatan'], $left['angkatan']);
+            })
             ->values()
             ->all();
 
@@ -884,9 +905,6 @@ class EventController extends Controller
                 'COUNT(*) AS total',
             ]))
             ->groupByRaw($cityCodeExpression)
-            ->orderByRaw("CASE WHEN {$cityCodeExpression} IS NULL THEN 1 ELSE 0 END ASC")
-            ->orderByDesc('total')
-            ->orderBy('city_name_value')
             ->get()
             ->map(fn ($row) => [
                 'city_code' => $row->city_code_value ?: null,
@@ -895,6 +913,18 @@ class EventController extends Controller
                 'province_name' => $row->province_name_value ?: null,
                 'total' => (int) $row->total,
             ])
+            ->sort(function (array $left, array $right): int {
+                $leftUnknown = $left['city_code'] === null;
+                $rightUnknown = $right['city_code'] === null;
+
+                if ($leftUnknown !== $rightUnknown) {
+                    return $leftUnknown ? 1 : -1;
+                }
+
+                return ($right['total'] <=> $left['total'])
+                    ?: strcasecmp($left['city_name'], $right['city_name'])
+                    ?: strcmp($left['city_name'], $right['city_name']);
+            })
             ->values()
             ->all();
 
