@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\AlumniNotificationController;
 use App\Http\Controllers\Api\AlumniEngagementController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\GoogleAuthController;
 use App\Http\Controllers\Api\PresensiController;
 use App\Http\Controllers\Api\RegionController;
 use App\Http\Controllers\Api\RegistrationController;
@@ -21,12 +22,27 @@ use App\Http\Controllers\Api\EventRecommendationController;
 use Illuminate\Support\Facades\Route;
 
 
-// ── Auth
+// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Auth
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login',    [AuthController::class, 'login']);
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:6,1');
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:6,1');
+
+    // Google OAuth routes
+    Route::prefix('google')->middleware('throttle:10,1')->group(function () {
+        Route::get('/register/redirect', [GoogleAuthController::class, 'registerRedirect']);
+        Route::get('/register/callback', [GoogleAuthController::class, 'registerCallback']);
+        Route::post('/register/complete', [GoogleAuthController::class, 'registerComplete']);
+        Route::get('/login/redirect', [GoogleAuthController::class, 'loginRedirect']);
+        Route::get('/login/callback', [GoogleAuthController::class, 'loginCallback']);
+        // Link Google account (authenticated)
+        Route::middleware('auth:sanctum')->group(function () {
+            Route::get('/link/redirect', [GoogleAuthController::class, 'linkRedirect']);
+            Route::get('/link/callback', [GoogleAuthController::class, 'linkCallback']);
+            Route::delete('/unlink', [GoogleAuthController::class, 'unlink']);
+        });
+    });
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -39,7 +55,7 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-// ── User Management (Frontend compatibility)
+// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ User Management (Frontend compatibility)
 Route::prefix('regions')->group(function () {
     Route::get('/provinces', [RegionController::class, 'provinces']);
     Route::get('/cities', [RegionController::class, 'cities']);
@@ -56,7 +72,7 @@ Route::middleware(['auth:sanctum', 'is_admin'])->group(function () {
     Route::get('/presences',     [PresensiController::class, 'adminUserHistory']);
 });
 
-// ── Admin
+// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Admin
 Route::prefix('admin')
     ->middleware(['auth:sanctum', 'is_admin'])
     ->group(function () {
@@ -114,7 +130,7 @@ Route::prefix('admin')
         Route::get('/engagement/attendance-mapping', [EngagementController::class, 'attendanceMapping']);
     });
 
-// ── Settings
+// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Settings
 Route::prefix('settings')
     ->middleware(['auth:sanctum', 'is_admin'])
     ->group(function () {
@@ -124,7 +140,7 @@ Route::prefix('settings')
             ->middleware('throttle:6,1');
     });
 
-// ── Alumni Notifications & Recommendations 
+// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Alumni Notifications & Recommendations 
 Route::middleware(['auth:sanctum', 'is_alumni'])->group(function () {
     Route::get('/alumni/notifications', [AlumniNotificationController::class, 'index']);
     Route::get('/alumni/notifications/unread-count', [AlumniNotificationController::class, 'unreadCount']);
@@ -135,7 +151,7 @@ Route::middleware(['auth:sanctum', 'is_alumni'])->group(function () {
     Route::get('/alumni/engagement/summary', [AlumniEngagementController::class, 'summary']);
 });
 
-// ── Events & Registration (Alumni) 
+// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Events & Registration (Alumni) 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/events',                  [RegistrationController::class, 'index']);
     Route::get('/events/{id}',             [RegistrationController::class, 'show']);
@@ -143,7 +159,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/events/{id}/register', [RegistrationController::class, 'cancel']);
 });
 
-// ── Presensi (Alumni)
+// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Presensi (Alumni)
 Route::prefix('presensi')
     ->middleware('auth:sanctum')
     ->group(function () {

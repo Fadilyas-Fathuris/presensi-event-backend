@@ -28,6 +28,8 @@ class User extends Authenticatable
         'role',
         'admin_level',
         'status',
+        'google_id',
+        'auth_provider',
     ];
 
     protected $hidden = [
@@ -79,5 +81,36 @@ class User extends Authenticatable
     public function sendPasswordResetNotification($token): void
     {
         $this->notify(new ResetPasswordNotification($token));
+    }
+
+    /**
+     * Check if user has Google account linked
+     *
+     * @return bool
+     */
+    public function hasGoogleLinked(): bool
+    {
+        return !is_null($this->google_id);
+    }
+
+    /**
+     * Check if user can safely unlink Google account
+     * User can unlink only if they have a password set
+     *
+     * @return bool
+     */
+    public function canUnlinkGoogle(): bool
+    {
+        return $this->hasGoogleLinked() && !empty($this->password);
+    }
+
+    /**
+     * Check if user is Google-only (no password set)
+     *
+     * @return bool
+     */
+    public function isGoogleOnly(): bool
+    {
+        return $this->hasGoogleLinked() && empty($this->password);
     }
 }

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 return [
 
@@ -40,5 +40,12 @@ return [
         'url'          => env('FONNTE_URL', 'https://api.fonnte.com/send'),
         'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
     ],
+
+    'google' => [
+    'client_id'     => env('GOOGLE_CLIENT_ID'),
+    'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+    'redirect'      => env('GOOGLE_REDIRECT_BASE_URL', env('APP_URL')),
+],
+
 
 ];
