@@ -57,6 +57,9 @@ jobs:
 
             php artisan down || true
 
+            # Prevent IPv6 timeouts and increase connection timeout limit
+            export COMPOSER_PROCESS_TIMEOUT=600
+            composer config -g prefer-ipv4 true || true
             composer install --no-dev --optimize-autoloader --no-interaction
 
             npm ci --include=dev
