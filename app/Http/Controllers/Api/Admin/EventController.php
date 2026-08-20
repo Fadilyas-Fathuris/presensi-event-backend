@@ -855,7 +855,7 @@ class EventController extends Controller
             ->join('users', 'users.id', '=', 'presensis.user_id')
             ->where('presensis.event_id', $event->id)
             ->selectRaw("{$graduationYearExpression} AS angkatan_value, COUNT(*) AS total")
-            ->groupByRaw($graduationYearExpression)
+            ->groupByRaw("angkatan_value")
             ->get()
             ->map(fn ($row) => [
                 'angkatan' => $row->angkatan_value ?: 'Tidak diketahui',
@@ -904,7 +904,7 @@ class EventController extends Controller
                 "MAX({$provinceNameExpression}) AS province_name_value",
                 'COUNT(*) AS total',
             ]))
-            ->groupByRaw($cityCodeExpression)
+            ->groupByRaw("city_code_value")
             ->get()
             ->map(fn ($row) => [
                 'city_code' => $row->city_code_value ?: null,
