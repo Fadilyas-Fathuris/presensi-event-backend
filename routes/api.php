@@ -151,7 +151,9 @@ Route::middleware(['auth:sanctum', 'is_alumni'])->group(function () {
     Route::get('/alumni/engagement/summary', [AlumniEngagementController::class, 'summary']);
 });
 
-// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Events & Registration (Alumni) 
+Route::get('/events/public', [RegistrationController::class, 'publicEvents']);
+
+// Events & Registration (Alumni) 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/events',                  [RegistrationController::class, 'index']);
     Route::get('/events/{id}',             [RegistrationController::class, 'show']);

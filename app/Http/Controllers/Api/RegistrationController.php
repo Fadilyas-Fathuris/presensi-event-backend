@@ -93,6 +93,27 @@ class RegistrationController extends Controller
         ]);
     }
 
+    public function publicEvents(Request $request): JsonResponse
+    {
+        $query = Event::with('category')
+            ->withCount('registrations')
+            ->where('status_event', 'active')
+            ->where('event_date', '>=', today());
+
+        $perPage = $request->get('per_page', 10);
+        $events  = $query->orderBy('event_date', 'asc')->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'events'       => $events->items(),
+                'total'        => $events->total(),
+                'current_page' => $events->currentPage(),
+                'last_page'    => $events->lastPage(),
+            ],
+        ]);
+    }
+
     #[OA\Get(
         path: '/api/events/{id}',
         operationId: 'getEventDetail',
