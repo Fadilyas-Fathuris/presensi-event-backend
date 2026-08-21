@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             CategorySeeder::class,
             AlumniSeeder::class,
             EventSeeder::class,
+            UserDomicileSeeder::class,
         ]);
 
     }

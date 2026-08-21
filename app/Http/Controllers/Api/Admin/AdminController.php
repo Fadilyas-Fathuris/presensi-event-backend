@@ -444,6 +444,7 @@ class AdminController extends Controller
             'angkatan' => ['sometimes', 'nullable', 'digits:4', 'integer', 'min:1950', 'max:' . date('Y')],
             'birth_date' => ['sometimes', 'nullable', 'date', 'before_or_equal:today'],
             'status' => ['sometimes', Rule::in(['pending', 'active', 'inactive', 'rejected'])],
+            'status_reason' => ['sometimes', 'nullable', 'string', 'max:255'],
             'role' => ['prohibited'],
             'admin_level' => ['prohibited'],
             'domicile_province_code' => ['nullable', 'string', 'max:20'],
@@ -468,6 +469,10 @@ class AdminController extends Controller
                 'domicile_address',
             ])
             ->all();
+
+        if (isset($payload['status']) && $payload['status'] === 'active') {
+            $payload['status_reason'] = null;
+        }
 
         if (isset($validated['name']) && ! isset($validated['first_name'])) {
             [$firstName, $lastName] = $this->resolveNameParts($validated);
@@ -574,9 +579,13 @@ class AdminController extends Controller
 
         $validated = $request->validate([
             'status' => ['required', Rule::in(['active', 'inactive', 'rejected'])],
+            'reason' => ['required_if:status,inactive,rejected', 'nullable', 'string', 'max:255'],
         ]);
 
-        $user->update(['status' => $validated['status']]);
+        $user->update([
+            'status' => $validated['status'],
+            'status_reason' => $validated['status'] === 'active' ? null : ($validated['reason'] ?? null),
+        ]);
 
         if (in_array($validated['status'], ['inactive', 'rejected'], true)) {
             $user->tokens()->delete();
@@ -584,7 +593,12 @@ class AdminController extends Controller
 
         \App\Models\ActivityLog::log(
             'update_user_status',
-            "Admin updated user status for {$user->email} to {$validated['status']}"
+            sprintf(
+                "Admin updated user status for %s to %s. Reason: %s",
+                $user->email,
+                $validated['status'],
+                $validated['reason'] ?? '-'
+            )
         );
 
         return response()->json([
@@ -711,13 +725,15 @@ class AdminController extends Controller
             'user_ids' => ['required', 'array', 'min:1'],
             'user_ids.*' => ['required', 'integer', 'distinct', Rule::exists('users', 'id')],
             'status' => ['required', Rule::in(['active', 'inactive', 'rejected'])],
+            'reason' => ['required_if:status,inactive,rejected', 'nullable', 'string', 'max:255'],
         ]);
 
         $requestedUserIds = array_values(array_map('intval', $validated['user_ids']));
         $currentAdminId = (int) $request->user()->id;
         $status = $validated['status'];
+        $reason = $validated['reason'] ?? null;
 
-        $result = DB::transaction(function () use ($requestedUserIds, $currentAdminId, $status): array {
+        $result = DB::transaction(function () use ($requestedUserIds, $currentAdminId, $status, $reason): array {
             $usersById = User::query()
                 ->whereIn('id', $requestedUserIds)
                 ->lockForUpdate()
@@ -745,9 +761,14 @@ class AdminController extends Controller
                 ->all();
 
             if ($updatedUserIds !== []) {
+                $updatePayload = [
+                    'status' => $status,
+                    'status_reason' => $status === 'active' ? null : $reason,
+                    'updated_at' => now()
+                ];
                 User::query()
                     ->whereIn('id', $updatedUserIds)
-                    ->update(['status' => $status, 'updated_at' => now()]);
+                    ->update($updatePayload);
 
                 if (in_array($status, ['inactive', 'rejected'], true)) {
                     $eligibleUsers->each(fn (User $user) => $user->tokens()->delete());
@@ -756,9 +777,10 @@ class AdminController extends Controller
                 \App\Models\ActivityLog::log(
                     'bulk_update_user_status',
                     sprintf(
-                        'Admin bulk updated %d user status(es) to %s',
+                        'Admin bulk updated %d user status(es) to %s. Reason: %s',
                         count($updatedUserIds),
-                        $status
+                        $status,
+                        $reason ?? '-'
                     )
                 );
             }

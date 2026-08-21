@@ -25,6 +25,7 @@ class UserResource extends JsonResource
             'role' => $this->role,
             'admin_level' => $this->admin_level,
             'status' => $this->status,
+            'status_reason' => $this->status_reason,
             'auth_provider' => $this->auth_provider,
             'google_linked' => !is_null($this->google_id),
             'has_password' => !empty($this->password),
