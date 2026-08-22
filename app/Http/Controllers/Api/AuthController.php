@@ -168,6 +168,35 @@ class AuthController extends Controller
             ], 401);
         }
 
+        // Role restriction based on portal / login source
+        $requestedRole = $request->input('role');
+        if (!$requestedRole) {
+            $referer = $request->header('referer');
+            if ($referer) {
+                if (str_contains($referer, '/admin')) {
+                    $requestedRole = 'admin';
+                } elseif (str_contains($referer, '/alumni')) {
+                    $requestedRole = 'alumni';
+                }
+            }
+        }
+
+        if ($requestedRole) {
+            if ($requestedRole === 'alumni' && $user->role === 'admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Admin tidak diperbolehkan login melalui portal alumni.',
+                ], 403);
+            }
+
+            if ($requestedRole === 'admin' && $user->role !== 'admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Alumni tidak diperbolehkan login melalui portal admin.',
+                ], 403);
+            }
+        }
+
         if ($user->role === 'admin' && ($user->status ?? 'active') !== 'active') {
             $user->tokens()->delete();
 
